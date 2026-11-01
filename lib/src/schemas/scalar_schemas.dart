@@ -247,6 +247,57 @@ class FileSchema extends BaseSchema<FileInput>
     );
   }
 
+  /// At most [bytes] long. Laravel `max` counts KB; this counts bytes,
+  /// so write `2 * 1024 * 1024` for 2 MB.
+  FileSchema maxSize(int bytes, {String? message}) {
+    return use(MaxSizeRule(bytes, message: message));
+  }
+
+  /// At least [bytes] long.
+  FileSchema minSize(int bytes, {String? message}) {
+    return use(MinSizeRule(bytes, message: message));
+  }
+
+  /// One of the file types [types] (extensions, like `pdf`), like
+  /// Laravel `mimes`. Same check as [extensions], with the `mimes` code
+  /// and message of `@Mimes`.
+  FileSchema mimes(List<String> types, {String? message}) {
+    return use(MimesRule(types, message: message));
+  }
+
+  /// One of the MIME types [mimeTypes], like `image/png` or `image/*`.
+  /// The real type comes from the file bytes, not from the client.
+  FileSchema mimeTypes(List<String> mimeTypes, {String? message}) {
+    return use(MimeTypesRule(mimeTypes, message: message));
+  }
+
+  /// A PNG, GIF, WebP or JPEG image whose width and height (in pixels)
+  /// fit every limit given. [ratio] is width / height, like `3 / 2`.
+  /// Only the first bytes of the file are read.
+  FileSchema dimensions({
+    int? width,
+    int? height,
+    int? minWidth,
+    int? maxWidth,
+    int? minHeight,
+    int? maxHeight,
+    double? ratio,
+    String? message,
+  }) {
+    return use(
+      DimensionsRule(
+        width: width,
+        height: height,
+        minWidth: minWidth,
+        maxWidth: maxWidth,
+        minHeight: minHeight,
+        maxHeight: maxHeight,
+        ratio: ratio,
+        message: message,
+      ),
+    );
+  }
+
   @override
   Object? parseType(Object? input, ParseState state, List<Object> path) {
     if (input is FileInput) {

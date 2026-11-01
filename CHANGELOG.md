@@ -1,5 +1,13 @@
 ## Unreleased
 
+- New file rules, like Laravel:
+  - `v.file().maxSize(bytes)` and `minSize(bytes)`, and `@MinSize('10KB')`. Laravel counts KB; the fluent rules count bytes. The message shows a short size, like `2MB`.
+  - `v.file().mimes([...])`, the same check as `@Mimes`.
+  - `v.file().mimeTypes(['image/png', 'image/*'])` and `@MimeTypes`. The MIME type is checked against the real file bytes, not the content type the client sent. SVG is never part of `image/*`.
+  - `v.file().dimensions(minWidth:, maxWidth:, minHeight:, maxHeight:, width:, height:, ratio:)` and `@Dimensions`. It reads only the image header of PNG, GIF, WebP and JPEG files. Other files, and broken or cut short headers, fail.
+- `ImageSize.read(head)` gives the width and height from the first bytes of an image. `FileTypes.matchesMimeTypes` and `FileTypes.extensionsOf` turn MIME types into checked file types.
+- `FileInput.head` may hold more than `FileTypes.headSize` bytes. A JPEG keeps its size after the photo metadata, so `dimensions` needs more bytes for it (see `ImageSize.jpegHeadSize`).
+
 - `ip()` and `@Ip` now reject IPv4 addresses with leading zeros, like `01.1.1.1`. Laravel does the same. Some tools read `010` as octal (8), so these addresses are not what they look like.
 
 ## 3.0.0

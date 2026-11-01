@@ -94,3 +94,126 @@ class FileExtensionRule extends BuiltInRule<FileInput> {
     return FileTypes.matches(value, extensions);
   }
 }
+
+/// A file size as short text for messages, like `2MB` or `1500B`.
+String _sizeText(int bytes) {
+  const List<String> units = <String>['GB', 'MB', 'KB'];
+  for (int i = 0; i < units.length; i++) {
+    int unit = 1 << (10 * (units.length - i));
+    if (bytes >= unit && bytes % unit == 0) {
+      return '${bytes ~/ unit}${units[i]}';
+    }
+  }
+  return '${bytes}B';
+}
+
+/// The file may be at most [bytes] long.
+class MaxSizeRule extends BuiltInRule<FileInput> {
+  MaxSizeRule(this.bytes, {super.message})
+    : super(
+        IssueCodes.maxSize,
+        DefaultMessages.maxSize,
+        params: <String, Object?>{'max': _sizeText(bytes)},
+        json: <String, dynamic>{'maxLength': bytes},
+      );
+
+  final int bytes;
+
+  @override
+  bool check(FileInput value, RuleContext context) {
+    return value.length <= bytes;
+  }
+}
+
+/// The file must be at least [bytes] long.
+class MinSizeRule extends BuiltInRule<FileInput> {
+  MinSizeRule(this.bytes, {super.message})
+    : super(
+        IssueCodes.minSize,
+        DefaultMessages.minSize,
+        params: <String, Object?>{'min': _sizeText(bytes)},
+        json: <String, dynamic>{'minLength': bytes},
+      );
+
+  final int bytes;
+
+  @override
+  bool check(FileInput value, RuleContext context) {
+    return value.length >= bytes;
+  }
+}
+
+/// The file must be one of [types] (extensions, like `pdf`). Same check
+/// as [FileExtensionRule], with the `mimes` code and message of `@Mimes`.
+class MimesRule extends BuiltInRule<FileInput> {
+  MimesRule(this.types, {super.message})
+    : super(
+        IssueCodes.mimes,
+        DefaultMessages.mimes,
+        params: <String, Object?>{'types': types.join(', ')},
+      );
+
+  final List<String> types;
+
+  @override
+  bool check(FileInput value, RuleContext context) {
+    return FileTypes.matches(value, types);
+  }
+}
+
+/// The file must be one of [mimeTypes], like `image/png` or `image/*`.
+/// The real type comes from the first bytes of the file, not from the
+/// content type the client sent (see [FileTypes.matchesMimeTypes]).
+class MimeTypesRule extends BuiltInRule<FileInput> {
+  MimeTypesRule(this.mimeTypes, {super.message})
+    : super(
+        IssueCodes.mimeTypes,
+        DefaultMessages.mimes,
+        params: <String, Object?>{'types': mimeTypes.join(', ')},
+        json: <String, dynamic>{'contentMediaType': mimeTypes.join(', ')},
+      );
+
+  final List<String> mimeTypes;
+
+  @override
+  bool check(FileInput value, RuleContext context) {
+    return FileTypes.matchesMimeTypes(value, mimeTypes);
+  }
+}
+
+/// The file must be a PNG, GIF, WebP or JPEG image whose size fits every
+/// limit given. See [ImageSize.fits].
+class DimensionsRule extends BuiltInRule<FileInput> {
+  DimensionsRule({
+    this.width,
+    this.height,
+    this.minWidth,
+    this.maxWidth,
+    this.minHeight,
+    this.maxHeight,
+    this.ratio,
+    super.message,
+  }) : super(IssueCodes.dimensions, DefaultMessages.dimensions);
+
+  final int? width;
+  final int? height;
+  final int? minWidth;
+  final int? maxWidth;
+  final int? minHeight;
+  final int? maxHeight;
+  final double? ratio;
+
+  @override
+  bool check(FileInput value, RuleContext context) {
+    return ImageSize.fits(
+      value,
+      width: width,
+      height: height,
+      minWidth: minWidth,
+      maxWidth: maxWidth,
+      minHeight: minHeight,
+      maxHeight: maxHeight,
+      ratio: ratio,
+    );
+  }
+}
