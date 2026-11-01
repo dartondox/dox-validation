@@ -57,14 +57,10 @@ abstract class PresenceVerifier {
   /// The items of [values] that are not in the table, for `exists` on a
   /// list. Like Laravel: one query for the whole list.
   ///
-  /// The database does the matching, so its rules count (MySQL ignores
-  /// case). The list passes when the database found at least as many
-  /// different values as the list has. Else the items that are not found
-  /// as text fail. A `null` item always fails.
-  ///
-  /// Two items that the database sees as one value (like `a` and `A` on
-  /// MySQL) count as two, so the list fails. This is the safe side.
-  /// When [find] throws [PresenceUnknown], every item fails.
+  /// An item passes only when its exact text is found. So on MySQL an
+  /// item that differs from the row only in case fails (the safe side;
+  /// one value alone lets the database decide). A `null` item always
+  /// fails. When [find] throws [PresenceUnknown], every item fails.
   static Future<List<int>> missingItems<T>(
     List<T> values,
     Future<Set<String>> Function(List<T> values) find,
@@ -78,21 +74,20 @@ abstract class PresenceVerifier {
     } on PresenceUnknown {
       return all;
     }
-    bool pass = found.length >= distinct.length;
     return <int>[
       for (int i = 0; i < values.length; i++)
-        if (values[i] == null || (!pass && !found.contains('${values[i]}'))) i,
+        if (values[i] == null || !found.contains('${values[i]}')) i,
     ];
   }
 
   /// The items of [values] that are already in the table, for `unique` on
   /// a list. One query for the whole list.
   ///
-  /// The list passes when the database found no row. Else the items that
-  /// match a found row as text fail. When the database found a row that
-  /// no item matches as text (MySQL ignores case), every item fails,
-  /// because it can not tell which one. A `null` item never fails.
-  /// When [find] throws [PresenceUnknown], every item fails.
+  /// The list passes when the database finds no row. When it finds any
+  /// row, every item fails: with one query it can not tell which item
+  /// matched (MySQL ignores case and trailing spaces), so this is the
+  /// safe side. A `null` item never fails. When [find] throws
+  /// [PresenceUnknown], every item fails.
   static Future<List<int>> takenItems<T>(
     List<T> values,
     Future<Set<String>> Function(List<T> values) find,
@@ -109,12 +104,7 @@ abstract class PresenceVerifier {
     } on PresenceUnknown {
       return all;
     }
-    if (found.isEmpty) return <int>[];
-    List<int> taken = <int>[
-      for (int i in all)
-        if (found.contains('${values[i]}')) i,
-    ];
-    return taken.isEmpty ? all : taken;
+    return found.isEmpty ? <int>[] : all;
   }
 
   /// One item per text, without `null`. `1` and `'1'` are one value for

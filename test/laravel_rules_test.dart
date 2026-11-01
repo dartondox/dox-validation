@@ -686,13 +686,30 @@ void main() {
       }
 
       expect(await u(<String>['new@dox.dev', 'other@dox.dev']), <int>[]);
-      expect(await u(<String>['new@dox.dev', 'taken@dox.dev']), <int>[1]);
+      // any row found: every item fails (it can not tell which matched)
+      expect(await u(<String>['new@dox.dev', 'taken@dox.dev']), <int>[0, 1]);
+      expect(await u(<String>['taken@dox.dev', 'TAKEN@dox.dev']), <int>[0, 1]);
       // only the database matched: it can not tell which, so all fail
       expect(await u(<String>['new@dox.dev', 'TAKEN@dox.dev']), <int>[0, 1]);
-      expect(await e(<String>['TAKEN@dox.dev', 'TAKEN@dox.dev']), <int>[]);
+      // an item passes only when its exact text is found
+      expect(await e(<String>['TAKEN@dox.dev', 'TAKEN@dox.dev']), <int>[0, 1]);
       expect(await e(<String>['taken@dox.dev', 'nope@dox.dev']), <int>[1]);
-      // `a` and `A` are one value for MySQL: the list fails (safe side)
       expect(await e(<String>['taken@dox.dev', 'TAKEN@dox.dev']), <int>[1]);
+      // `bob` finds `bob` and `Bob`: `nobody` must still fail
+      FakeVerifier names = FakeVerifier(<String, List<Map<String, Object?>>>{
+        'people': <Map<String, Object?>>[
+          <String, Object?>{'id': 1, 'name': 'bob'},
+          <String, Object?>{'id': 2, 'name': 'Bob'},
+        ],
+      }, ignoreCase: true);
+      expect(
+        await ExistsRule<String>(
+          'people',
+          column: 'name',
+          verifier: names,
+        ).failedItems(<String>['bob', 'nobody'], context),
+        <int>[1],
+      );
 
       // 500 items: always one query
       List<String> many = <String>[
@@ -703,7 +720,7 @@ void main() {
       // the list fails, and the items not found as text are marked
       expect(await e(many), hasLength(500));
       List<String> copies = List<String>.filled(500, 'TAKEN@dox.dev');
-      expect(await e(copies), <int>[]);
+      expect(await e(copies), hasLength(500));
       expect(await u(copies), hasLength(500));
       expect(mysql.calls, hasLength(4));
     });
