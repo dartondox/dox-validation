@@ -23,6 +23,10 @@ abstract class PresenceVerifier {
   /// The values of [values] that are in [column] of [table], as text.
   /// When [exceptColumn] is set, rows where it equals [exceptValue] are
   /// left out. [connection] is a connection name, `null` for the default.
+  ///
+  /// A value that can not be in the column (like `abc` for a number
+  /// column) is not found. When [values] has more than one item and the
+  /// database can not compare them, throw [PresenceUnknown].
   Future<Set<String>> found(
     String table,
     String column,
@@ -50,29 +54,70 @@ abstract class PresenceVerifier {
     return name;
   }
 
-  /// The indexes of [values] that [find] found in the database.
+  /// The items of [values] that are not in the table, for `exists` on a
+  /// list. Like Laravel: one query for the whole list.
   ///
-  /// The found values come back as text, and first they are matched to
-  /// the items as text. But the database can match more: MySQL ignores
-  /// case, and `1.0` finds the row `1`. So when the database found
-  /// something and some items did not match, each of those items is asked
-  /// again alone, and the database answer is used. When all items match,
-  /// or nothing was found, there is only one query.
-  static Future<Set<int>> foundItems<T>(
+  /// An item passes only when its exact text is found. So on MySQL an
+  /// item that differs from the row only in case fails (the safe side;
+  /// one value alone lets the database decide). A `null` item always
+  /// fails. When [find] throws [PresenceUnknown], every item fails.
+  static Future<List<int>> missingItems<T>(
     List<T> values,
     Future<Set<String>> Function(List<T> values) find,
   ) async {
-    Set<String> found = await find(values);
-    Set<int> hits = <int>{};
-    for (int i = 0; i < values.length; i++) {
-      if (found.contains('${values[i]}')) hits.add(i);
+    List<T> distinct = _distinct(values);
+    List<int> all = <int>[for (int i = 0; i < values.length; i++) i];
+    if (distinct.isEmpty) return all;
+    Set<String> found;
+    try {
+      found = await find(distinct);
+    } on PresenceUnknown {
+      return all;
     }
-    if (found.isEmpty || hits.length == values.length) return hits;
-    for (int i = 0; i < values.length; i++) {
-      if (hits.contains(i)) continue;
-      if ((await find(<T>[values[i]])).isNotEmpty) hits.add(i);
+    return <int>[
+      for (int i = 0; i < values.length; i++)
+        if (values[i] == null || !found.contains('${values[i]}')) i,
+    ];
+  }
+
+  /// The items of [values] that are already in the table, for `unique` on
+  /// a list. One query for the whole list.
+  ///
+  /// The list passes when the database finds no row. When it finds any
+  /// row, every item fails: with one query it can not tell which item
+  /// matched (MySQL ignores case and trailing spaces), so this is the
+  /// safe side. A `null` item never fails. When [find] throws
+  /// [PresenceUnknown], every item fails.
+  static Future<List<int>> takenItems<T>(
+    List<T> values,
+    Future<Set<String>> Function(List<T> values) find,
+  ) async {
+    List<T> distinct = _distinct(values);
+    if (distinct.isEmpty) return <int>[];
+    List<int> all = <int>[
+      for (int i = 0; i < values.length; i++)
+        if (values[i] != null) i,
+    ];
+    Set<String> found;
+    try {
+      found = await find(distinct);
+    } on PresenceUnknown {
+      return all;
     }
-    return hits;
+    return found.isEmpty ? <int>[] : all;
+  }
+
+  /// One item per text, without `null`. `1` and `'1'` are one value for
+  /// the database, `1` and `1.0` are not (Postgres finds no `1.0` in a
+  /// number id), and their text differs too.
+  static List<T> _distinct<T>(List<T> values) {
+    Map<String, T> byText = <String, T>{};
+    for (T value in values) {
+      if (value == null) continue;
+      String text = '$value';
+      if (!byText.containsKey(text)) byText[text] = value;
+    }
+    return byText.values.toList();
   }
 
   static PresenceVerifier _use(PresenceVerifier? own) {
@@ -133,14 +178,10 @@ class ExistsRule<T> extends AsyncRule<T> {
     );
   }
 
-  /// Many values: see [PresenceVerifier.foundItems].
+  /// Many values: one query, see [PresenceVerifier.missingItems].
   @override
-  Future<List<int>> failedItems(List<T> values, RuleContext context) async {
-    Set<int> found = await PresenceVerifier.foundItems(values, _found);
-    return <int>[
-      for (int i = 0; i < values.length; i++)
-        if (!found.contains(i)) i,
-    ];
+  Future<List<int>> failedItems(List<T> values, RuleContext context) {
+    return PresenceVerifier.missingItems(values, _found);
   }
 }
 
@@ -207,10 +248,25 @@ class UniqueRule<T> extends AsyncRule<T> {
     );
   }
 
-  /// Many values: see [PresenceVerifier.foundItems].
+  /// Many values: one query, see [PresenceVerifier.takenItems].
   @override
-  Future<List<int>> failedItems(List<T> values, RuleContext context) async {
-    Set<int> taken = await PresenceVerifier.foundItems(values, _found);
-    return taken.toList()..sort();
+  Future<List<int>> failedItems(List<T> values, RuleContext context) {
+    return PresenceVerifier.takenItems(values, _found);
+  }
+}
+
+/// Thrown by [PresenceVerifier.found] for a list when the database can not
+/// compare some of the values with the column, like `abc` for a number
+/// column on Postgres. One bad value fails the whole query, so it is not
+/// known which items are in the table. The list rules then fail every
+/// item. This is the safe side.
+class PresenceUnknown implements Exception {
+  const PresenceUnknown(this.message);
+
+  final String message;
+
+  @override
+  String toString() {
+    return 'PresenceUnknown: $message';
   }
 }
