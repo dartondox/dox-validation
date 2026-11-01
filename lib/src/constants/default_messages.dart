@@ -70,6 +70,8 @@ class DefaultMessages {
   static const String maxSize = 'The {field} may not be larger than {max}';
   static const String mimes = 'The {field} must be a file of type: {types}';
   static const String image = 'The {field} must be an image';
+  static const String minSize = 'The {field} must be at least {min}';
+  static const String dimensions = 'The {field} has invalid image dimensions';
   static const String positive = 'The {field} must be greater than 0';
 
   static const String afterOrEqual =
