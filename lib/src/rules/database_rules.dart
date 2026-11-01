@@ -55,9 +55,12 @@ abstract class PresenceVerifier {
   /// The found values come back as text, and first they are matched to
   /// the items as text. But the database can match more: MySQL ignores
   /// case, and `1.0` finds the row `1`. So when the database found
-  /// something and some items did not match, each of those items is asked
-  /// again alone, and the database answer is used. When all items match,
-  /// or nothing was found, there is only one query.
+  /// something and some items did not match, those items are asked again
+  /// in one query. Only when that query finds something, the items are
+  /// split in two halves, and each half is asked again, down to one item.
+  /// So the database answer is used, and the number of queries stays
+  /// small: 2 in the usual case, and about `2 * log2(n)` more for each
+  /// item that only the database matches. Never one query per item.
   static Future<Set<int>> foundItems<T>(
     List<T> values,
     Future<Set<String>> Function(List<T> values) find,
@@ -68,11 +71,30 @@ abstract class PresenceVerifier {
       if (found.contains('${values[i]}')) hits.add(i);
     }
     if (found.isEmpty || hits.length == values.length) return hits;
-    for (int i = 0; i < values.length; i++) {
-      if (hits.contains(i)) continue;
-      if ((await find(<T>[values[i]])).isNotEmpty) hits.add(i);
-    }
+    List<int> rest = <int>[
+      for (int i = 0; i < values.length; i++)
+        if (!hits.contains(i)) i,
+    ];
+    await _split(values, rest, find, hits);
     return hits;
+  }
+
+  /// Ask for the items at [rest] in one query. When the database finds
+  /// something, split them in two halves and ask again, down to one item.
+  static Future<void> _split<T>(
+    List<T> values,
+    List<int> rest,
+    Future<Set<String>> Function(List<T> values) find,
+    Set<int> hits,
+  ) async {
+    if ((await find(<T>[for (int i in rest) values[i]])).isEmpty) return;
+    if (rest.length == 1) {
+      hits.add(rest.single);
+      return;
+    }
+    int mid = rest.length ~/ 2;
+    await _split(values, rest.sublist(0, mid), find, hits);
+    await _split(values, rest.sublist(mid), find, hits);
   }
 
   static PresenceVerifier _use(PresenceVerifier? own) {

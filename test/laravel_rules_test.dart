@@ -684,6 +684,23 @@ void main() {
         ], context),
         <int>[1],
       );
+      // 500 items, one only matched by the database: a few queries only
+      List<String> many = <String>[
+        for (int i = 0; i < 499; i++) 'new$i@dox.dev',
+      ]..insert(250, 'TAKEN@dox.dev');
+      mysql.calls.clear();
+      expect(await unique.failedItems(many, context), <int>[250]);
+      expect(mysql.calls.length, lessThanOrEqualTo(2 + 2 * 9 + 2));
+      mysql.calls.clear();
+      List<int> missing = await exists.failedItems(many, context);
+      expect(missing, hasLength(499));
+      expect(missing.contains(250), isFalse);
+      expect(mysql.calls.length, lessThanOrEqualTo(2 + 2 * 9 + 2));
+      // one exact hit and 499 new: 2 queries
+      many[250] = 'taken@dox.dev';
+      mysql.calls.clear();
+      expect(await unique.failedItems(many, context), <int>[250]);
+      expect(mysql.calls, hasLength(2));
       // an exact match needs one query only
       mysql.calls.clear();
       await exists.failedItems(<String>['taken@dox.dev'], context);
