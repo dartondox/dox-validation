@@ -97,16 +97,19 @@ class DtoState extends ParseState {
     );
   }
 
-  /// The field [key] is missing. Add an issue when [rule] (a
-  /// `@RequiredIf` or `@RequiredWith`) says it is required. [input] is
-  /// the raw object that holds the field.
+  /// Add an issue when the converted [value] of [key] is missing and
+  /// [rule] (a `@RequiredIf` or `@RequiredWith`) says it is required.
+  /// Missing: `undefined`, `null`, blank text or an empty list.
+  /// [input] is the raw object that holds the field.
   void requiredWhen(
     RequiredWhen rule,
+    Object? value,
     Map<dynamic, dynamic> input,
     List<Object> path,
     Object key,
     Map<String, String> messages,
   ) {
+    if (value is! Undefined && !RequiredWhen.isEmpty(value)) return;
     if (_hasIssue(path, key) || !rule.appliesTo(input)) return;
     RequiredWhenIssue issue = RequiredWhenIssue(rule);
     fail(

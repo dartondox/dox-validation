@@ -14,6 +14,10 @@ abstract class PresenceVerifier {
   const PresenceVerifier();
 
   /// The verifier the rules use when they have none of their own.
+  ///
+  /// Each isolate has its own static value. So set it where every isolate
+  /// runs it, like a provider's `setup()`. dox_orm sets it when the
+  /// database driver is set.
   static PresenceVerifier? instance;
 
   /// The values of [values] that are in [column] of [table], as text.
@@ -84,19 +88,26 @@ class ExistsRule<T> extends AsyncRule<T> {
     return DefaultMessages.exists;
   }
 
+  /// One value: the database decides what matches. MySQL, for one,
+  /// ignores case. So any row found means the value exists.
   @override
   Future<bool> checkAsync(T value, RuleContext context) async {
-    return (await failedItems(<T>[value], context)).isEmpty;
+    return (await _found(<T>[value])).isNotEmpty;
   }
 
-  @override
-  Future<List<int>> failedItems(List<T> values, RuleContext context) async {
-    Set<String> found = await PresenceVerifier._use(verifier).found(
+  Future<Set<String>> _found(List<T> values) {
+    return PresenceVerifier._use(verifier).found(
       PresenceVerifier.checkName(table),
       PresenceVerifier.checkName(column),
       values,
       connection: connection,
     );
+  }
+
+  /// Many values: the found values are matched to the items as text.
+  @override
+  Future<List<int>> failedItems(List<T> values, RuleContext context) async {
+    Set<String> found = await _found(values);
     return <int>[
       for (int i = 0; i < values.length; i++)
         if (!found.contains('${values[i]}')) i,
@@ -107,12 +118,15 @@ class ExistsRule<T> extends AsyncRule<T> {
 /// No row in [table] has this value in [column]. Laravel `unique`.
 /// Made by `v.string().unique('users')`. Use `parseAsync`.
 ///
-/// [column] defaults to the input key. Give [ignore] to skip one row,
-/// like the row being updated: `unique('users', ignore: id)`.
+/// Give [ignore] to skip one row, like the row being updated:
+/// `unique('users', column: 'email', ignore: id)`.
+///
+/// [column] is required. It is never taken from the input key, because a
+/// key in `v.map()` comes from the user.
 class UniqueRule<T> extends AsyncRule<T> {
   const UniqueRule(
     this.table, {
-    this.column,
+    required this.column,
     this.ignore,
     this.ignoreColumn = 'id',
     this.connection,
@@ -121,7 +135,7 @@ class UniqueRule<T> extends AsyncRule<T> {
   });
 
   final String table;
-  final String? column;
+  final String column;
 
   /// Skip the row where [ignoreColumn] equals this value.
   final Object? ignore;
@@ -143,17 +157,18 @@ class UniqueRule<T> extends AsyncRule<T> {
     return DefaultMessages.unique;
   }
 
+  /// One value: the database decides what matches. MySQL, for one,
+  /// ignores case. So any row found means the value is taken.
   @override
   Future<bool> checkAsync(T value, RuleContext context) async {
-    return (await failedItems(<T>[value], context)).isEmpty;
+    return (await _found(<T>[value])).isEmpty;
   }
 
-  @override
-  Future<List<int>> failedItems(List<T> values, RuleContext context) async {
+  Future<Set<String>> _found(List<T> values) {
     Object? skip = ignore;
-    Set<String> taken = await PresenceVerifier._use(verifier).found(
+    return PresenceVerifier._use(verifier).found(
       PresenceVerifier.checkName(table),
-      PresenceVerifier.checkName(column ?? context.field),
+      PresenceVerifier.checkName(column),
       values,
       exceptColumn: skip == null
           ? null
@@ -161,6 +176,12 @@ class UniqueRule<T> extends AsyncRule<T> {
       exceptValue: skip,
       connection: connection,
     );
+  }
+
+  /// Many values: the found values are matched to the items as text.
+  @override
+  Future<List<int>> failedItems(List<T> values, RuleContext context) async {
+    Set<String> taken = await _found(values);
     return <int>[
       for (int i = 0; i < values.length; i++)
         if (taken.contains('${values[i]}')) i,

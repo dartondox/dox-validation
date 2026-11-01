@@ -3,7 +3,10 @@ import 'package:test/test.dart';
 
 /// A fake database: table.column => values.
 class FakeVerifier extends PresenceVerifier {
-  FakeVerifier(this.rows);
+  FakeVerifier(this.rows, {this.ignoreCase = false});
+
+  /// Like MySQL: `TAKEN@dox.dev` finds the row `taken@dox.dev`.
+  final bool ignoreCase;
 
   /// `users.email` => the rows, each row is `{column: value}`.
   final Map<String, List<Map<String, Object?>>> rows;
@@ -20,18 +23,28 @@ class FakeVerifier extends PresenceVerifier {
     String? connection,
   }) async {
     calls.add('$table.$column except $exceptColumn=$exceptValue');
-    Set<String> wanted = <String>{for (Object? value in values) '$value'};
+    String key(Object? value) {
+      // like SQL: 1.0 = 1
+      if (value is double && value == value.truncateToDouble()) {
+        value = value.toInt();
+      }
+      return ignoreCase ? '$value'.toLowerCase() : '$value';
+    }
+
+    Set<String> wanted = <String>{for (Object? value in values) key(value)};
     Set<String> result = <String>{};
     for (Map<String, Object?> row in rows[table] ?? <Map<String, Object?>>[]) {
       if (exceptColumn != null && '${row[exceptColumn]}' == '$exceptValue') {
         continue;
       }
       String value = '${row[column]}';
-      if (wanted.contains(value)) result.add(value);
+      if (wanted.contains(key(value))) result.add(value);
     }
     return result;
   }
 }
+
+enum Kind { person, company }
 
 ValidationIssue only(ParseResult<Object?> result) {
   expect(result.success, false);
@@ -131,11 +144,55 @@ void main() {
       );
     });
 
+    test('compares raw input: trim() does not count', () {
+      ObjectSchema s = v.object(<String, Schema<Object?>>{
+        'code': v.string().trim().confirmed(),
+      });
+      expect(
+        s.safeParse(<String, dynamic>{
+          'code': ' ab ',
+          'code_confirmation': ' ab ',
+        }).success,
+        true,
+      );
+      expect(
+        s.safeParse(<String, dynamic>{
+          'code': ' ab ',
+          'code_confirmation': 'ab',
+        }).success,
+        false,
+      );
+    });
+
+    test('text and numbers match both ways', () {
+      ObjectSchema s = v.object(<String, Schema<Object?>>{
+        'a': v.any().same('b'),
+      });
+      expect(
+        s.safeParse(<String, dynamic>{'a': '1234', 'b': 1234}).success,
+        true,
+      );
+      expect(
+        s.safeParse(<String, dynamic>{'a': 1234, 'b': '1234'}).success,
+        true,
+      );
+      expect(
+        s.safeParse(<String, dynamic>{'a': true, 'b': 'true'}).success,
+        true,
+      );
+      expect(
+        s.safeParse(<String, dynamic>{'a': '12', 'b': 1234}).success,
+        false,
+      );
+      expect(Same.matches(<Object?>['a'], <Object?>['a']), false);
+    });
+
     test('Same.matches uses the last value of a repeated text key', () {
       expect(Same.matches('b', <Object?>['a', 'b']), true);
       expect(Same.matches('a', <Object?>['a', 'b']), false);
       expect(Same.matches('a', undefined), false);
       expect(Same.matches('a', <Object?>[]), false);
+      expect(Same.matches(<Object?>['a', 'b'], 'b'), true);
     });
   });
 
@@ -243,6 +300,21 @@ void main() {
       },
     );
 
+    test('an enum value matches its name', () {
+      ObjectSchema s = v.object(<String, Schema<Object?>>{
+        'kind': v.string(),
+        'company': v.string().optional().requiredIf('kind', Kind.company),
+      });
+      expect(s.safeParse(<String, dynamic>{'kind': 'company'}).success, false);
+      expect(s.safeParse(<String, dynamic>{'kind': 'person'}).success, true);
+      expect(
+        const RequiredIf('kind', <Kind>[
+          Kind.person,
+        ]).appliesTo(<String, dynamic>{'kind': 'person'}),
+        true,
+      );
+    });
+
     test('rules added after requiredIf keep it', () {
       ObjectSchema s = v.object(<String, Schema<Object?>>{
         'a': v.any(),
@@ -310,6 +382,53 @@ void main() {
   });
 
   group('dateFormat |', () {
+    test('names, 12 hour time and more PHP letters', () {
+      bool m(String value, String format) {
+        return DateFormatted.matches(value, format);
+      }
+
+      expect(m('01 Jan 2024', 'd M Y'), true);
+      expect(m('01 M 2024', 'd M Y'), false);
+      expect(m('01 jan 2024', 'd M Y'), false);
+      expect(m('January 5, 2024', 'F j, Y'), true);
+      expect(m('Mon, 01 Jan 2024', 'D, d M Y'), true);
+      expect(m('Tue, 01 Jan 2024', 'D, d M Y'), false); // it was a Monday
+      expect(m('Monday 1st January', 'l jS F'), true);
+      expect(m('Monday 1nd January', 'l jS F'), false);
+      expect(m('22nd', 'jS'), true);
+      expect(m('11th', 'jS'), true);
+      expect(m('12:30 PM', 'h:i A'), true);
+      expect(m('h:30 A', 'h:i A'), false);
+      expect(m('13:30 PM', 'h:i A'), false);
+      expect(m('9:05 am', 'g:i a'), true);
+      expect(m('2024-01-31 9:05 pm 21', 'Y-m-d g:i a H'), true);
+      expect(m('2024-01-31 9:05 pm 09', 'Y-m-d g:i a H'), false);
+      expect(m('1700000000', 'U'), true);
+      expect(m('2024-01-31T10:00:00+07:00', 'c'), true);
+      expect(m('Wed, 31 Jan 2024 10:00:00 +0700', 'r'), true);
+      expect(m('2024-02 29', 'Y-m t'), true);
+      expect(m('2023-02 29', 'Y-m t'), false);
+      expect(m('2024 1', 'Y L'), true);
+      expect(m('2023 1', 'Y L'), false);
+      expect(m('2024-02-01 31', 'Y-m-d z'), true);
+      expect(m('2024-02-01 30', 'Y-m-d z'), false);
+      expect(m('2024-01-01 1 1', 'Y-m-d N w'), true);
+      expect(m('10:00 Z', 'H:i p'), true);
+      expect(m('10:00 Asia/Bangkok', 'H:i e'), true);
+      expect(m('10:00 UTC', 'H:i T'), true);
+    });
+
+    test('an unknown letter throws, an escaped one is text', () {
+      expect(
+        () => DateFormatted.matches('2024-W01', 'Y-\\WW'),
+        throwsArgumentError,
+      );
+      expect(() => v.string().dateFormat('Y-W'), throwsArgumentError);
+      expect(() => v.string().dateFormat('Y-q'), throwsArgumentError);
+      expect(DateFormatted.matches('2024-W', r'Y-\W'), true);
+      expect(DateFormatted.matches('2024 at 10', r'Y \a\t H'), true);
+    });
+
     test('Y-m-d', () {
       StringSchema s = v.string().dateFormat('Y-m-d');
       expect(s.safeParse('2024-02-29').success, true);
@@ -384,7 +503,7 @@ void main() {
       expect(s.safeParse('123é').success, true);
       expect(
         only(s.safeParse('1234')).message,
-        'The value must have at least 4 characters, and one letter',
+        'The value must have at least 4 characters and one letter',
       );
     });
   });
@@ -426,9 +545,9 @@ void main() {
       expect(db.calls.last, 'teams.slug except null=null');
     });
 
-    test('unique uses the input key as the column', () async {
+    test('unique', () async {
       ObjectSchema s = v.object(<String, Schema<Object?>>{
-        'email': v.string().unique('users'),
+        'email': v.string().unique('users', column: 'email'),
       });
       expect(
         (await s.safeParseAsync(<String, dynamic>{'email': 'new@dox.dev'}))
@@ -487,19 +606,51 @@ void main() {
       ]) {
         await expectLater(s.safeParseAsync('a'), throwsArgumentError);
       }
-      // the input key is the column, so a strange key from a map throws
-      MapSchema<String> m = v.map(v.string().unique('users'));
-      await expectLater(
-        m.safeParseAsync(<String, dynamic>{'email OR 1=1': 'a'}),
-        throwsArgumentError,
-      );
       expect(db.calls, isEmpty);
       expect(PresenceVerifier.checkName('public.users'), 'public.users');
     });
 
     test('async rules need parseAsync', () {
-      expect(() => v.string().unique('users').safeParse('a'), throwsStateError);
+      expect(
+        () => v.string().unique('users', column: 'email').safeParse('a'),
+        throwsStateError,
+      );
     });
+
+    test('a key from the user is never the column', () async {
+      // a map key comes from the request: it must not pick the column
+      MapSchema<String> m = v.map(v.string().unique('users', column: 'email'));
+      await m.safeParseAsync(<String, dynamic>{'password_hash': 'x'});
+      expect(db.calls.last, 'users.email except null=null');
+    });
+
+    test(
+      'one value: the database match decides (MySQL ignores case)',
+      () async {
+        PresenceVerifier.instance = FakeVerifier(
+          <String, List<Map<String, Object?>>>{
+            'users': <Map<String, Object?>>[
+              <String, Object?>{'id': 5, 'email': 'taken@dox.dev'},
+            ],
+            'teams': <Map<String, Object?>>[
+              <String, Object?>{'id': 1, 'slug': 'core'},
+            ],
+          },
+          ignoreCase: true,
+        );
+        StringSchema unique = v.string().unique('users', column: 'email');
+        expect((await unique.safeParseAsync('TAKEN@dox.dev')).success, false);
+        expect((await unique.safeParseAsync('new@dox.dev')).success, true);
+        StringSchema exists = v.string().exists('teams', column: 'slug');
+        expect((await exists.safeParseAsync('CORE')).success, true);
+        expect((await exists.safeParseAsync('nope')).success, false);
+        // 1.0 finds the row 1, even if the text is not the same
+        expect(
+          (await v.num().exists('teams').safeParseAsync(1.0)).success,
+          true,
+        );
+      },
+    );
   });
 
   group('DTO helpers |', () {
@@ -508,6 +659,7 @@ void main() {
       Map<String, dynamic> input = <String, dynamic>{'type': 'company'};
       s.requiredWhen(
         const RequiredIf('type', 'company'),
+        undefined,
         input,
         const <Object>[],
         'company',
@@ -515,6 +667,7 @@ void main() {
       );
       s.requiredWhen(
         const RequiredWith(<String>['type']),
+        '  ',
         input,
         const <Object>[],
         'tax_id',
@@ -522,6 +675,7 @@ void main() {
       );
       s.requiredWhen(
         const RequiredIf('type', 'person'),
+        null,
         input,
         const <Object>[],
         'name',
@@ -533,6 +687,26 @@ void main() {
         'The company is required when type is company',
       );
       expect(s.issues[1].message, 'Tax ID please');
+      // a value that is there: no issue, even when the rule applies
+      s.requiredWhen(
+        const RequiredIf('type', 'company'),
+        'Dox',
+        input,
+        const <Object>[],
+        'other',
+        const <String, String>{},
+      );
+      // an empty list is missing
+      s.requiredWhen(
+        const RequiredIf('type', 'company'),
+        <String>[],
+        input,
+        const <Object>[],
+        'tags',
+        const <String, String>{},
+      );
+      expect(s.issues, hasLength(3));
+      expect(s.issues[2].dottedPath, 'tags');
     });
 
     test('rule classes are const, so they work as annotations', () {

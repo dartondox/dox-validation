@@ -43,12 +43,13 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
     );
   }
 
-  /// No row in [table] has this value in [column] (default: the input
-  /// key). [ignore] skips the row where [ignoreColumn] equals it.
+  /// No row in [table] has this value in [column]. [ignore] skips the
+  /// row where [ignoreColumn] equals it. [column] is required: it is
+  /// never taken from the input key.
   /// Laravel `unique`. Needs `parseAsync` and a [PresenceVerifier].
   S unique(
     String table, {
-    String? column,
+    required String column,
     Object? ignore,
     String ignoreColumn = 'id',
     String? connection,

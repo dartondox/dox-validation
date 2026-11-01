@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
+import '../core/data_path.dart';
 import '../core/message_resolver.dart';
 import '../core/rule.dart';
 import '../core/sentinels.dart';
@@ -14,8 +15,9 @@ import '../dto/dto_annotations.dart';
 /// The value must equal the key [other] in the same object:
 /// `@Same('password')`. Laravel `same`.
 ///
-/// It compares with the raw input of [other]. Text and numbers match by
-/// text, so `5` matches `'5'` (form data).
+/// It compares the raw input of both keys, like Laravel. So a change
+/// like `trim()` does not count: `' ab '` matches `' ab '`. Text matches
+/// a number or a bool by text, both ways: `1234` matches `'1234'`.
 class Same<T> extends Rule<T> {
   const Same(this.other, {super.message});
 
@@ -39,18 +41,32 @@ class Same<T> extends Rule<T> {
 
   @override
   bool check(T value, RuleContext context) {
-    return matches(value, context.sibling(other));
+    return matches(rawOf(context), context.sibling(other));
   }
 
-  /// `true` when [value] equals the raw input [other].
-  static bool matches(Object? value, Object? other) {
-    if (other is List && value is! List) {
-      // text input: a key that came many times, the last one is used
-      other = other.isEmpty ? undefined : other.last;
+  /// The raw input of the value being checked.
+  static Object? rawOf(RuleContext context) {
+    return DataPath.read(context.root, context.path);
+  }
+
+  /// `true` when the raw inputs [a] and [b] are the same.
+  static bool matches(Object? a, Object? b) {
+    a = _one(a, b);
+    b = _one(b, a);
+    if (a is Undefined || b is Undefined) return false;
+    if (a == b) return true;
+    if (a is String && (b is num || b is bool)) return a == '$b';
+    if (b is String && (a is num || a is bool)) return b == '$a';
+    return false;
+  }
+
+  /// Text input: a key that came many times is a list, and the last one
+  /// is used. Only when the other side is not a list.
+  static Object? _one(Object? value, Object? other) {
+    if (value is List && other is! List) {
+      return value.isEmpty ? undefined : value.last;
     }
-    if (other is Undefined) return false;
-    if (value == other) return true;
-    return other is String && value is! String && '$value' == other;
+    return value;
   }
 }
 
@@ -78,7 +94,7 @@ class Confirmed<T> extends Rule<T> {
   @override
   bool check(T value, RuleContext context) {
     String key = other ?? '${context.field}_confirmation';
-    return Same.matches(value, context.sibling(key));
+    return Same.matches(Same.rawOf(context), context.sibling(key));
   }
 }
 
@@ -188,17 +204,26 @@ class DigitsBetween extends Rule<String> {
 /// Laravel `date_format`. (Not named `DateFormat`, so it does not clash
 /// with `package:intl`.)
 ///
-/// Format letters, like PHP:
-/// - `Y` year (4 digits), `y` year (2 digits)
-/// - `m` month (01-12), `n` month (1-12)
-/// - `d` day (01-31), `j` day (1-31)
-/// - `H` hour (00-23), `G` hour (0-23)
-/// - `i` minutes (00-59), `s` seconds (00-59)
-/// - `v` milliseconds (3 digits), `u` microseconds (6 digits)
-/// - `P` time zone like `+07:00`, `O` time zone like `+0700`
+/// Format letters, like PHP `date()`:
+/// - day: `d` (01-31), `j` (1-31), `D` (Mon), `l` (Monday), `N` (1-7,
+///   Monday is 1), `w` (0-6, Sunday is 0), `S` (st, nd, rd, th),
+///   `z` (day of the year, 0-365)
+/// - month: `m` (01-12), `n` (1-12), `M` (Jan), `F` (January),
+///   `t` (days in the month)
+/// - year: `Y` (4 digits), `y` (2 digits), `L` (1 in a leap year, else 0)
+/// - time: `a` (am, pm), `A` (AM, PM), `g` (1-12), `h` (01-12),
+///   `G` (0-23), `H` (00-23), `i` (00-59), `s` (00-59), `v` (3 digit
+///   milliseconds), `u` (6 digit microseconds)
+/// - time zone: `e` (`Asia/Bangkok`), `T` (`UTC`, `+07`), `P` (`+07:00`),
+///   `p` (`Z` or `+07:00`), `O` (`+0700`), `Z` (offset in seconds),
+///   `I` (0 or 1)
+/// - full: `U` (seconds since 1970), `c` (`Y-m-d\TH:i:sP`),
+///   `r` (`D, d M Y H:i:s O`)
 ///
-/// Put `\` before a letter to use it as text. Every other character must
-/// be there as it is. The date must exist: `2024-02-30` fails.
+/// Put `\` before a letter to use it as text. Any other letter throws an
+/// [ArgumentError]. Every other character must be there as it is.
+/// The date must exist (`2023-02-29` fails). Names must have the case
+/// above. Day names, `S`, `z`, `t` and `L` must fit the date.
 class DateFormatted extends Rule<String> {
   const DateFormatted(this.format, {super.message});
 
@@ -224,62 +249,243 @@ class DateFormatted extends Rule<String> {
     return matches(value, format);
   }
 
-  static const Map<String, String> _parts = <String, String>{
-    'Y': r'(\d{4})',
-    'y': r'(\d{2})',
-    'm': r'(\d{2})',
-    'n': r'(\d{1,2})',
+  static const List<String> _days = <String>[
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  static const List<String> _months = <String>[
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  static const String _offset = r'[+-](?:[01]\d|2[0-3]):?[0-5]\d';
+
+  static final Map<String, String> _parts = <String, String>{
     'd': r'(\d{2})',
     'j': r'(\d{1,2})',
-    'H': r'(\d{2})',
+    'D': '(${_days.map(_short).join('|')})',
+    'l': '(${_days.join('|')})',
+    'N': '([1-7])',
+    'w': '([0-6])',
+    'S': '(st|nd|rd|th)',
+    'z': r'(\d{1,3})',
+    'm': r'(\d{2})',
+    'n': r'(\d{1,2})',
+    'M': '(${_months.map(_short).join('|')})',
+    'F': '(${_months.join('|')})',
+    't': r'(\d{2})',
+    'Y': r'(\d{4})',
+    'y': r'(\d{2})',
+    'L': '([01])',
+    'a': '(am|pm)',
+    'A': '(AM|PM)',
+    'g': r'(\d{1,2})',
+    'h': r'(\d{2})',
     'G': r'(\d{1,2})',
+    'H': r'(\d{2})',
     'i': r'(\d{2})',
     's': r'(\d{2})',
     'v': r'(\d{3})',
     'u': r'(\d{6})',
-    'P': r'([+-](?:[01]\d|2[0-3]):[0-5]\d)',
-    'O': r'([+-](?:[01]\d|2[0-3])[0-5]\d)',
+    'e': r'([A-Za-z_]+(?:/[A-Za-z0-9_+-]+)*)',
+    'T': '([A-Z]{1,5}|$_offset)',
+    'P': '([+-](?:[01]\\d|2[0-3]):[0-5]\\d)',
+    'p': '(Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)',
+    'O': '([+-](?:[01]\\d|2[0-3])[0-5]\\d)',
+    'Z': r'(-?\d{1,5})',
+    'I': '([01])',
+    'U': r'(-?\d+)',
   };
+
+  static const Map<String, String> _full = <String, String>{
+    'c': r'Y-m-d\TH:i:sP',
+    'r': 'D, d M Y H:i:s O',
+  };
+
+  static String _short(String name) {
+    return name.substring(0, 3);
+  }
+
+  /// Throws an [ArgumentError] when [format] has a letter that is not
+  /// supported (and not escaped with `\`).
+  static void checkFormat(String format) {
+    _compile(format);
+  }
+
+  /// The regex for [format], and the letter of each group.
+  static (RegExp, List<String>) _compile(String format) {
+    StringBuffer pattern = StringBuffer('^');
+    List<String> letters = <String>[];
+    void add(String text) {
+      for (int i = 0; i < text.length; i++) {
+        String char = text[i];
+        if (char == r'\' && i + 1 < text.length) {
+          i++;
+          pattern.write(RegExp.escape(text[i]));
+          continue;
+        }
+        String? full = _full[char];
+        if (full != null) {
+          add(full);
+          continue;
+        }
+        String? part = _parts[char];
+        if (part != null) {
+          pattern.write(part);
+          letters.add(char);
+          continue;
+        }
+        if (RegExp('[a-zA-Z]').hasMatch(char)) {
+          throw ArgumentError.value(
+            format,
+            'format',
+            'The letter "$char" is not supported. Put \\ before it to use '
+                'it as text',
+          );
+        }
+        pattern.write(RegExp.escape(char));
+      }
+    }
+
+    add(format);
+    pattern.write(r'$');
+    return (RegExp(pattern.toString()), letters);
+  }
 
   /// `true` when [value] is a real date in [format].
   static bool matches(String value, String format) {
-    StringBuffer pattern = StringBuffer('^');
-    List<String> letters = <String>[];
-    for (int i = 0; i < format.length; i++) {
-      String char = format[i];
-      if (char == r'\' && i + 1 < format.length) {
-        i++;
-        pattern.write(RegExp.escape(format[i]));
-        continue;
-      }
-      String? part = _parts[char];
-      if (part == null) {
-        pattern.write(RegExp.escape(char));
-        continue;
-      }
-      pattern.write(part);
-      letters.add(char);
-    }
-    pattern.write(r'$');
-    RegExpMatch? match = RegExp(pattern.toString()).firstMatch(value);
+    (RegExp, List<String>) compiled = _compile(format);
+    List<String> letters = compiled.$2;
+    RegExpMatch? match = compiled.$1.firstMatch(value);
     if (match == null) return false;
-    Map<String, int> found = <String, int>{};
+    Map<String, String> found = <String, String>{};
     for (int i = 0; i < letters.length; i++) {
       String letter = letters[i];
-      int? number = int.tryParse(match[i + 1]!);
-      if (number == null) continue; // a time zone
+      String text = match[i + 1]!;
       // the same letter twice must have the same value
-      if (found.containsKey(letter) && found[letter] != number) return false;
-      found[letter] = number;
+      if (found.containsKey(letter) && found[letter] != text) return false;
+      found[letter] = text;
     }
-    int year = found['Y'] ?? (found['y'] == null ? 2000 : 2000 + found['y']!);
-    int month = found['m'] ?? found['n'] ?? 1;
-    int day = found['d'] ?? found['j'] ?? 1;
-    int hour = found['H'] ?? found['G'] ?? 0;
-    if (month < 1 || month > 12 || day < 1 || hour > 23) return false;
-    if ((found['i'] ?? 0) > 59 || (found['s'] ?? 0) > 59) return false;
-    // DateTime moves Feb 30 to Mar 1, so check the day did not move
-    return DateTime.utc(year, month, day).day == day;
+    return _real(found);
+  }
+
+  static int? _number(Map<String, String> found, String letter) {
+    String? text = found[letter];
+    return text == null ? null : int.parse(text);
+  }
+
+  /// Two ways to give one part (like `m` and `M`) must agree.
+  static int? _one(List<int?> values, void Function() conflict) {
+    int? result;
+    for (int? value in values) {
+      if (value == null) continue;
+      if (result != null && result != value) conflict();
+      result = value;
+    }
+    return result;
+  }
+
+  static bool _real(Map<String, String> found) {
+    bool ok = true;
+    void conflict() {
+      ok = false;
+    }
+
+    int? shortYear = _number(found, 'y');
+    int? year = _one(<int?>[
+      _number(found, 'Y'),
+      if (shortYear != null)
+        shortYear < 70 ? 2000 + shortYear : 1900 + shortYear,
+    ], conflict);
+    int? month = _one(<int?>[
+      _number(found, 'm'),
+      _number(found, 'n'),
+      if (found['F'] != null) _months.indexOf(found['F']!) + 1,
+      if (found['M'] != null)
+        _months.map(_short).toList().indexOf(found['M']!) + 1,
+    ], conflict);
+    int? day = _one(<int?>[_number(found, 'd'), _number(found, 'j')], conflict);
+    String? half = (found['a'] ?? found['A'])?.toLowerCase();
+    if (found['a'] != null && found['A'] != null) {
+      if (found['a'] != found['A']!.toLowerCase()) return false;
+    }
+    int? hour12 = _one(<int?>[
+      _number(found, 'g'),
+      _number(found, 'h'),
+    ], conflict);
+    int? hour = _one(<int?>[
+      _number(found, 'G'),
+      _number(found, 'H'),
+      if (hour12 != null && half != null) hour12 % 12 + (half == 'pm' ? 12 : 0),
+    ], conflict);
+    if (!ok) return false;
+    if (hour12 != null && (hour12 < 1 || hour12 > 12)) return false;
+    if (hour != null && hour > 23) return false;
+    if ((_number(found, 'i') ?? 0) > 59 || (_number(found, 's') ?? 0) > 59) {
+      return false;
+    }
+    if (month != null && (month < 1 || month > 12)) return false;
+    int y = year ?? 2000; // a leap year, so 29 Feb passes without a year
+    int m = month ?? 1;
+    int lastDay = DateTime.utc(y, m + 1, 0).day;
+    if (day != null && (day < 1 || day > lastDay)) return false;
+    bool leap = DateTime.utc(y, 2, 29).day == 29;
+    if (year != null &&
+        found['L'] != null &&
+        found['L'] != (leap ? '1' : '0')) {
+      return false;
+    }
+    int? days = _number(found, 't');
+    if (days != null) {
+      if (month == null ? (days < 28 || days > 31) : days != lastDay) {
+        return false;
+      }
+    }
+    int? dayOfYear = _number(found, 'z');
+    if (dayOfYear != null) {
+      if (dayOfYear > (leap ? 365 : 364)) return false;
+      if (month != null && day != null) {
+        int real = DateTime.utc(y, m, day).difference(DateTime.utc(y)).inDays;
+        if (real != dayOfYear) return false;
+      }
+    }
+    if (day == null) return true;
+    String? suffix = found['S'];
+    if (suffix != null && suffix != _suffix(day)) return false;
+    if (year == null || month == null) return true;
+    int weekday = DateTime.utc(y, m, day).weekday; // 1 = Monday
+    String dayName = _days[weekday - 1];
+    if (found['l'] != null && found['l'] != dayName) return false;
+    if (found['D'] != null && found['D'] != _short(dayName)) return false;
+    if (found['N'] != null && found['N'] != '$weekday') return false;
+    if (found['w'] != null && found['w'] != '${weekday % 7}') return false;
+    return true;
+  }
+
+  static String _suffix(int day) {
+    if (day >= 11 && day <= 13) return 'th';
+    return switch (day % 10) {
+      1 => 'st',
+      2 => 'nd',
+      3 => 'rd',
+      _ => 'th',
+    };
   }
 }
 
@@ -339,7 +545,7 @@ class Password extends Rule<String> {
   Map<String, Object?> get params {
     return <String, Object?>{
       'min': min,
-      'rules': ListText.joinWithAnd(<String>[
+      'rules': _join(<String>[
         'at least $min characters',
         if (mixedCase)
           'one upper case and one lower case letter'
@@ -349,6 +555,12 @@ class Password extends Rule<String> {
         if (symbols) 'one symbol',
       ]),
     };
+  }
+
+  /// `a and b` for two items, `a, b, and c` for more.
+  static String _join(List<String> items) {
+    if (items.length == 2) return '${items[0]} and ${items[1]}';
+    return ListText.joinWithAnd(items);
   }
 
   @override

@@ -150,7 +150,9 @@ class StringSchema extends BaseSchema<String>
 
   /// A real date in [format], like `'Y-m-d'`. Laravel `date_format`.
   /// See [DateFormatted] for the format letters.
+  /// A letter that is not supported throws an [ArgumentError] here.
   StringSchema dateFormat(String format, {String? message}) {
+    DateFormatted.checkFormat(format);
     return use(DateFormatted(format, message: message));
   }
 
@@ -193,12 +195,13 @@ class StringSchema extends BaseSchema<String>
     );
   }
 
-  /// No row in [table] has this value in [column] (default: the input
-  /// key). [ignore] skips the row where [ignoreColumn] equals it.
+  /// No row in [table] has this value in [column]. [ignore] skips the
+  /// row where [ignoreColumn] equals it. [column] is required: it is
+  /// never taken from the input key.
   /// Laravel `unique`. Needs `parseAsync` and a [PresenceVerifier].
   StringSchema unique(
     String table, {
-    String? column,
+    required String column,
     Object? ignore,
     String ignoreColumn = 'id',
     String? connection,

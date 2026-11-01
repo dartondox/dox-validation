@@ -3,14 +3,15 @@
 - New Laravel-style rules. Each works in fluent schemas and as a DTO annotation, unless noted:
   - `same('other')` / `@Same('other')`: the value must equal another key in the same object.
   - `confirmed()` / `@Confirmed()`: `<field>_confirmation` must have the same value.
-  - `.optional().requiredIf('type', 'company')` / `@RequiredIf('type', 'company')`: required when another key has a value.
+  - `same` and `confirmed` compare the raw input of both keys, like Laravel. Text matches a number or a bool by text, both ways.
+  - `.optional().requiredIf('type', 'company')` / `@RequiredIf('type', 'company')`: required when another key has a value. An enum value matches its name. Missing means: not there, `null`, blank text or an empty list.
   - `.optional().requiredWith(['phone'])` / `@RequiredWith(['phone'])`: required when another key is present.
   - `json()` / `@Json()`: the text must be valid JSON.
   - `digits(6)` / `@Digits(6)` and `digitsBetween(4, 6)` / `@DigitsBetween(4, 6)`: only digits, with this length.
   - `between(1, 10)` on `v.int()` and `v.num()`. DTOs already have `@Range(1, 10)`.
-  - `dateFormat('Y-m-d')` / `@DateFormatted('Y-m-d')`: a real date in this format.
+  - `dateFormat('Y-m-d')` / `@DateFormatted('Y-m-d')`: a real date in this format. It knows the PHP `date()` letters, like `M`, `D`, `A` and `U`. Another letter throws an `ArgumentError`; put `\` before it to use it as text.
   - `password(min: 8, letters: true, mixedCase: true, numbers: true, symbols: true)` / `@Password(...)`: a strong password. It does not check leaked passwords.
-  - `exists('teams')` and `unique('users')` on `v.string()`, `v.int()` and `v.num()`. They need `parseAsync`. They ask a `PresenceVerifier`, which `dox_orm` sets when the database starts. Table and column names are checked: only letters, digits and `_` pass. DTOs keep `@Exists` and `@Unique` from `dox_orm`.
+  - `exists('teams')` and `unique('users', column: 'email')` on `v.string()`, `v.int()` and `v.num()`. They need `parseAsync`. `unique` needs `column:`; it never uses the input key. For one value the database decides what matches, so on MySQL `TAKEN@dox.dev` is taken when `taken@dox.dev` is there. They ask a `PresenceVerifier`, which `dox_orm` sets when the database starts. Table and column names are checked: only letters, digits and `_` pass. DTOs keep `@Exists` and `@Unique` from `dox_orm`.
 - `@RequiredIf` and `@RequiredWith` need a `dox_builder` that knows them.
 - `RuleContext.sibling('key')` reads another key of the same object.
 

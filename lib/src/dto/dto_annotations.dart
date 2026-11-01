@@ -373,7 +373,8 @@ abstract class RequiredWhen {
 /// `@RequiredIf('type', ['company', 'shop'])`.
 ///
 /// [other] is a key in the same object. Text and numbers match by text,
-/// so `'1'` matches `1` and `'true'` matches `true`.
+/// so `'1'` matches `1` and `'true'` matches `true`. An enum value
+/// matches its name: `Kind.company` matches `'company'`.
 class RequiredIf extends RequiredWhen {
   const RequiredIf(this.other, this.value, {super.message});
 
@@ -391,7 +392,8 @@ class RequiredIf extends RequiredWhen {
   @override
   bool appliesTo(Object? parent) {
     Object? raw = RequiredWhen.read(parent, other);
-    for (Object? item in values) {
+    for (Object? value in values) {
+      Object? item = value is Enum ? value.name : value;
       if (item == raw) return true;
       if (raw != null && item != null && '$item' == '$raw') return true;
     }
