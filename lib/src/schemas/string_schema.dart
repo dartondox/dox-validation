@@ -106,7 +106,7 @@ class StringSchema extends BaseSchema<String>
     );
   }
 
-  /// Only letters, dash and underscore.
+  /// Only letters, numbers, dash and underscore.
   StringSchema alphaDash({String? message}) {
     return use(
       RegexRule(

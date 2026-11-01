@@ -47,7 +47,7 @@ class DefaultMessages {
   static const String includes = 'The {field} must include {text}';
   static const String alpha = 'The {field} must be an alphabetic';
   static const String alphaDash =
-      'The {field} must be only alphabetic and dash';
+      'The {field} must be only alphabetic, number, dash and underscore';
   static const String alphaNumeric =
       'The {field} must be only alphabetic and number';
   static const String datetime = 'The {field} must be a valid date time';

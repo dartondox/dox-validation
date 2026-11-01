@@ -13,7 +13,7 @@ class Patterns {
     r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
   );
   static final RegExp alpha = RegExp(r'^[a-zA-Z]+$');
-  static final RegExp alphaDash = RegExp(r'^[a-zA-Z-_]+$');
+  static final RegExp alphaDash = RegExp(r'^[a-zA-Z0-9_-]+$');
   static final RegExp alphaNumeric = RegExp(r'^[a-zA-Z0-9]+$');
 
   /// ISO 8601 date time, like `2024-01-31T10:00:00Z`.
