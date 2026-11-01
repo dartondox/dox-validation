@@ -1,7 +1,10 @@
 /// Regular expressions shared by string rules.
 class Patterns {
+  /// The local part allows the same symbols as HTML5 (`+`, `'` and more),
+  /// split by single dots. Each dot ends a group, so there is no ReDoS.
   static final RegExp email = RegExp(
-    r'^[\w-]+(\.[\w-]+)*@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*(\.[a-zA-Z]{2,})$',
+    r"^[\w!#$%&'*+/=?^`{|}~-]+(\.[\w!#$%&'*+/=?^`{|}~-]+)*@"
+    r'[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*(\.[a-zA-Z]{2,})$',
   );
   static final RegExp uuid = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
