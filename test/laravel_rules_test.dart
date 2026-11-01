@@ -305,7 +305,10 @@ void main() {
         'kind': v.string(),
         'company': v.string().optional().requiredIf('kind', Kind.company),
       });
-      expect(s.safeParse(<String, dynamic>{'kind': 'company'}).success, false);
+      expect(
+        only(s.safeParse(<String, dynamic>{'kind': 'company'})).message,
+        'The company is required when kind is company',
+      );
       expect(s.safeParse(<String, dynamic>{'kind': 'person'}).success, true);
       expect(
         const RequiredIf('kind', <Kind>[

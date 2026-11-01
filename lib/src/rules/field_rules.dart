@@ -590,7 +590,10 @@ class RequiredWhenIssue {
         DefaultMessages.requiredIf,
         <String, Object?>{
           'other': rule.other,
-          'values': rule.values.join(' or '),
+          'values': <Object?>[
+            for (Object? value in rule.values)
+              value is Enum ? value.name : value,
+          ].join(' or '),
         },
       );
     }
