@@ -373,3 +373,88 @@ class Dimensions {
   final double? ratio;
   final String? message;
 }
+
+// ---------------------------------------------------------------------------
+// Required when
+// ---------------------------------------------------------------------------
+
+/// Base of [RequiredIf] and [RequiredWith]. The field is required only
+/// when [appliesTo] is `true`. Use them on a nullable field, a `Maybe`
+/// field or a field with a default.
+abstract class RequiredWhen {
+  const RequiredWhen({this.message});
+
+  final String? message;
+
+  /// `true` when the field is required. [parent] is the raw input
+  /// object that holds the field.
+  bool appliesTo(Object? parent);
+
+  /// The raw value of [key] in [parent], or `null`. In text input a key
+  /// can come many times; then it is a list and the last one is used.
+  static Object? read(Object? parent, String key) {
+    if (parent is! Map) return null;
+    Object? value = parent[key];
+    if (value is List) return value.isEmpty ? null : value.last;
+    return value;
+  }
+
+  /// `true` when [value] counts as missing: `null`, blank text or an
+  /// empty list or map.
+  static bool isEmpty(Object? value) {
+    if (value == null) return true;
+    if (value is String) return value.trim().isEmpty;
+    if (value is List) return value.isEmpty;
+    if (value is Map) return value.isEmpty;
+    return false;
+  }
+}
+
+/// Required when the key [other] has [value]:
+/// `@RequiredIf('type', 'company')`. Give a list for many values:
+/// `@RequiredIf('type', ['company', 'shop'])`.
+///
+/// [other] is a key in the same object. Text and numbers match by text,
+/// so `'1'` matches `1` and `'true'` matches `true`. An enum value
+/// matches its name: `Kind.company` matches `'company'`.
+class RequiredIf extends RequiredWhen {
+  const RequiredIf(this.other, this.value, {super.message});
+
+  final String other;
+
+  /// One value, or a list of values (any of them).
+  final Object? value;
+
+  /// [value] as a list.
+  List<Object?> get values {
+    Object? one = value;
+    return one is List ? one : <Object?>[one];
+  }
+
+  @override
+  bool appliesTo(Object? parent) {
+    Object? raw = RequiredWhen.read(parent, other);
+    for (Object? value in values) {
+      Object? item = value is Enum ? value.name : value;
+      if (item == raw) return true;
+      if (raw != null && item != null && '$item' == '$raw') return true;
+    }
+    return false;
+  }
+}
+
+/// Required when any of the keys [others] is present and not empty:
+/// `@RequiredWith(['phone'])`. [others] are keys in the same object.
+class RequiredWith extends RequiredWhen {
+  const RequiredWith(this.others, {super.message});
+
+  final List<String> others;
+
+  @override
+  bool appliesTo(Object? parent) {
+    for (String key in others) {
+      if (!RequiredWhen.isEmpty(RequiredWhen.read(parent, key))) return true;
+    }
+    return false;
+  }
+}

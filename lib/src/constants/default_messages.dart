@@ -78,4 +78,18 @@ class DefaultMessages {
       'The {field} must be a date after or equal to {date}';
   static const String beforeOrEqual =
       'The {field} must be a date before or equal to {date}';
+
+  static const String same = 'The {field} must match {other}';
+  static const String confirmed = 'The {field} confirmation does not match';
+  static const String requiredIf =
+      'The {field} is required when {other} is {values}';
+  static const String requiredWith =
+      'The {field} is required when {others} is present';
+  static const String exists = 'The selected {field} is invalid';
+  static const String unique = 'The {field} has already been taken';
+  static const String digits = 'The {field} must be {digits} digits';
+  static const String digitsBetween =
+      'The {field} must be between {min} and {max} digits';
+  static const String dateFormat = 'The {field} must match the format {format}';
+  static const String password = 'The {field} must have {rules}';
 }

@@ -1,16 +1,67 @@
+import '../core/data_path.dart';
 import '../core/fluent_schema.dart';
 import '../core/json_schema_tools.dart';
 import '../core/parse_state.dart';
 import '../core/schema.dart';
 import '../core/sentinels.dart';
+import '../dto/dto_annotations.dart';
+import '../rules/field_rules.dart';
 
 /// The value may be missing. Made by `.optional()`.
 class OptionalSchema<O> extends BaseSchema<O?>
     with FluentSchema<OptionalSchema<O>, O?> {
-  OptionalSchema(this.inner);
+  OptionalSchema(this.inner, {this.requiredWhen = const <RequiredWhen>[]});
 
   /// The wrapped schema.
   final Schema<O> inner;
+
+  /// When one of them applies, the value is required after all.
+  final List<RequiredWhen> requiredWhen;
+
+  /// Required when the key [other] in the same object has [value] (or
+  /// one of the values, when [value] is a list). Laravel `required_if`.
+  OptionalSchema<O> requiredIf(String other, Object? value, {String? message}) {
+    return _addRequiredWhen(RequiredIf(other, value, message: message));
+  }
+
+  /// Required when any of the keys [others] in the same object is present
+  /// and not empty. Laravel `required_with`.
+  OptionalSchema<O> requiredWith(List<String> others, {String? message}) {
+    return _addRequiredWhen(RequiredWith(others, message: message));
+  }
+
+  OptionalSchema<O> _addRequiredWhen(RequiredWhen rule) {
+    return copyBaseInto(
+      OptionalSchema<O>(
+        inner,
+        requiredWhen: <RequiredWhen>[...requiredWhen, rule],
+      ),
+    );
+  }
+
+  /// Add an issue and give `true` when [input] is empty but a
+  /// [requiredWhen] rule applies.
+  bool _missingButRequired(Object? input, ParseState state, List<Object> path) {
+    if (requiredWhen.isEmpty) return false;
+    if (input is! Undefined && !RequiredWhen.isEmpty(input)) return false;
+    Object? parent = path.isEmpty
+        ? state.root
+        : DataPath.read(state.root, path.sublist(0, path.length - 1));
+    for (RequiredWhen rule in requiredWhen) {
+      if (!rule.appliesTo(parent)) continue;
+      RequiredWhenIssue issue = RequiredWhenIssue(rule);
+      state.addIssue(
+        path: path,
+        code: issue.code,
+        fallback: issue.fallback,
+        value: input,
+        params: issue.params,
+        message: rule.message,
+      );
+      return true;
+    }
+    return false;
+  }
 
   @override
   bool get isOptional {
@@ -24,6 +75,9 @@ class OptionalSchema<O> extends BaseSchema<O?>
 
   @override
   Object? parseValue(Object? input, ParseState state, List<Object> path) {
+    if (_missingButRequired(input, state, path)) {
+      return invalid;
+    }
     if (input is Undefined) {
       return undefined;
     }
@@ -38,6 +92,9 @@ class OptionalSchema<O> extends BaseSchema<O?>
     ParseState state,
     List<Object> path,
   ) async {
+    if (_missingButRequired(input, state, path)) {
+      return invalid;
+    }
     if (input is Undefined) {
       return undefined;
     }
@@ -58,7 +115,7 @@ class OptionalSchema<O> extends BaseSchema<O?>
 
   @override
   OptionalSchema<O> copySchema() {
-    return copyBaseInto(OptionalSchema<O>(inner));
+    return copyBaseInto(OptionalSchema<O>(inner, requiredWhen: requiredWhen));
   }
 }
 
