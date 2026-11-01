@@ -83,11 +83,13 @@ abstract class PresenceVerifier {
   /// The items of [values] that are already in the table, for `unique` on
   /// a list. One query for the whole list.
   ///
-  /// The list passes when the database finds no row. When it finds any
-  /// row, every item fails: with one query it can not tell which item
-  /// matched (MySQL ignores case and trailing spaces), so this is the
-  /// safe side. A `null` item never fails. When [find] throws
-  /// [PresenceUnknown], every item fails.
+  /// The list passes when the database finds no row. When every found row
+  /// is an item by its exact text, only those items fail. When a found
+  /// row matches no item by its text, the database matched in its own
+  /// way (MySQL ignores case and trailing spaces), and one query can not
+  /// tell which item it was: then every item fails (the safe side). A
+  /// `null` item never fails. When [find] throws [PresenceUnknown], every
+  /// item fails.
   static Future<List<int>> takenItems<T>(
     List<T> values,
     Future<Set<String>> Function(List<T> values) find,
@@ -104,7 +106,13 @@ abstract class PresenceVerifier {
     } on PresenceUnknown {
       return all;
     }
-    return found.isEmpty ? <int>[] : all;
+    // every row is an item by its exact text: only those items are taken
+    Set<String> texts = <String>{for (T value in distinct) '$value'};
+    if (!texts.containsAll(found)) return all;
+    return <int>[
+      for (int i = 0; i < values.length; i++)
+        if (values[i] != null && found.contains('${values[i]}')) i,
+    ];
   }
 
   /// One item per text, without `null`. `1` and `'1'` are one value for
