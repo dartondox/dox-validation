@@ -2,6 +2,7 @@ import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../constants/patterns.dart';
 import '../core/rule.dart';
+import '../dto/dto_state.dart';
 import 'built_in_rule.dart';
 
 /// Text must have at least [min] characters.
@@ -103,15 +104,24 @@ class UuidRule extends RegexRule {
       );
 }
 
-/// Text must be an IPv4 address.
-class IpRule extends RegexRule {
+/// Text must be an IPv4 or IPv6 address. Same check as the DTO `@Ip`.
+class IpRule extends BuiltInRule<String> {
   IpRule({super.message})
     : super(
-        Patterns.ipv4,
-        code: IssueCodes.ip,
-        defaultMessage: DefaultMessages.ip,
-        json: <String, dynamic>{'format': 'ipv4'},
+        IssueCodes.ip,
+        DefaultMessages.ip,
+        json: <String, dynamic>{
+          'anyOf': <Map<String, dynamic>>[
+            <String, dynamic>{'format': 'ipv4'},
+            <String, dynamic>{'format': 'ipv6'},
+          ],
+        },
       );
+
+  @override
+  bool check(String value, RuleContext context) {
+    return DtoChecks.ip(value);
+  }
 }
 
 /// Text must be an ISO 8601 date time.
