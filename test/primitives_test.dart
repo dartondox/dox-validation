@@ -69,6 +69,12 @@ void main() {
     test('formats', () {
       expect(v.string().email().safeParse('a@b.dev').success, true);
       expect(v.string().email().safeParse('nope').success, false);
+      expect(v.string().email().safeParse('ann+tag@x.com').success, true);
+      expect(v.string().email().safeParse("o'neil@x.com").success, true);
+      expect(v.string().email().safeParse('a b@x.com').success, false);
+      expect(v.string().email().safeParse('ann@').success, false);
+      expect(v.string().email().safeParse('ann@x').success, false);
+      expect(v.string().email().safeParse('a..b@x.com').success, false);
       expect(v.string().url().safeParse('https://dartondox.dev').success, true);
       expect(v.string().url().safeParse('just text').success, false);
       expect(
@@ -94,6 +100,12 @@ void main() {
       expect(v.string().uuid().safeParse('abc').success, false);
       expect(v.string().ip().safeParse('192.168.1.1').success, true);
       expect(v.string().ip().safeParse('999.1.1.1').success, false);
+      expect(v.string().ip().safeParse('::1').success, true);
+      expect(
+        v.string().ip().safeParse('2001:db8::8a2e:370:7334').success,
+        true,
+      );
+      expect(v.string().ip().safeParse('2001:db8::g').success, false);
       expect(
         v.string().datetime().safeParse('2024-01-31T10:00:00Z').success,
         true,
@@ -118,6 +130,8 @@ void main() {
       expect(v.string().alpha().safeParse('dox').success, true);
       expect(v.string().alpha().safeParse('dox1').success, false);
       expect(v.string().alphaDash().safeParse('dox_web-x').success, true);
+      expect(v.string().alphaDash().safeParse('post-123').success, true);
+      expect(v.string().alphaDash().safeParse('dox web').success, false);
       expect(v.string().alphaNumeric().safeParse('dox1').success, true);
       expect(v.string().alphaNumeric().safeParse('&@#').success, false);
     });
