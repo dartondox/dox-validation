@@ -664,6 +664,14 @@ void main() {
         ], context),
         <int>[1],
       );
+      // the exact value and a case change of it in one list
+      expect(
+        await unique.failedItems(<String>[
+          'taken@dox.dev',
+          'TAKEN@dox.dev',
+        ], context),
+        <int>[0, 1],
+      );
       ExistsRule<String> exists = ExistsRule<String>(
         'users',
         column: 'email',

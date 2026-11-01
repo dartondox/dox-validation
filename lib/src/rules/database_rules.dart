@@ -54,24 +54,20 @@ abstract class PresenceVerifier {
   ///
   /// The found values come back as text, and first they are matched to
   /// the items as text. But the database can match more: MySQL ignores
-  /// case, and `1.0` finds the row `1`. When some found rows match no
-  /// item, each item that did not match is asked again alone, and the
-  /// database answer is used. So the extra queries run only then.
+  /// case, and `1.0` finds the row `1`. So when the database found
+  /// something and some items did not match, each of those items is asked
+  /// again alone, and the database answer is used. When all items match,
+  /// or nothing was found, there is only one query.
   static Future<Set<int>> foundItems<T>(
     List<T> values,
     Future<Set<String>> Function(List<T> values) find,
   ) async {
     Set<String> found = await find(values);
     Set<int> hits = <int>{};
-    Set<String> used = <String>{};
     for (int i = 0; i < values.length; i++) {
-      String text = '${values[i]}';
-      if (found.contains(text)) {
-        hits.add(i);
-        used.add(text);
-      }
+      if (found.contains('${values[i]}')) hits.add(i);
     }
-    if (used.length == found.length) return hits;
+    if (found.isEmpty || hits.length == values.length) return hits;
     for (int i = 0; i < values.length; i++) {
       if (hits.contains(i)) continue;
       if ((await find(<T>[values[i]])).isNotEmpty) hits.add(i);
