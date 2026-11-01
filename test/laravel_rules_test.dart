@@ -44,6 +44,21 @@ class FakeVerifier extends PresenceVerifier {
   }
 }
 
+/// Like Postgres with `abc` in a list for a number column.
+class UnknownVerifier extends PresenceVerifier {
+  @override
+  Future<Set<String>> found(
+    String table,
+    String column,
+    List<Object?> values, {
+    String? exceptColumn,
+    Object? exceptValue,
+    String? connection,
+  }) async {
+    throw const PresenceUnknown('abc is not a number');
+  }
+}
+
 enum Kind { person, company }
 
 ValidationIssue only(ParseResult<Object?> result) {
@@ -642,7 +657,7 @@ void main() {
       );
     });
 
-    test('a list: a case-only match is still found (MySQL)', () async {
+    test('a list is one query, like Laravel (MySQL ignores case)', () async {
       FakeVerifier mysql = FakeVerifier(<String, List<Map<String, Object?>>>{
         'users': <Map<String, Object?>>[
           <String, Object?>{'id': 5, 'email': 'taken@dox.dev'},
@@ -657,54 +672,83 @@ void main() {
         column: 'email',
         verifier: mysql,
       );
-      expect(
-        await unique.failedItems(<String>[
-          'new@dox.dev',
-          'TAKEN@dox.dev',
-        ], context),
-        <int>[1],
-      );
-      // the exact value and a case change of it in one list
-      expect(
-        await unique.failedItems(<String>[
-          'taken@dox.dev',
-          'TAKEN@dox.dev',
-        ], context),
-        <int>[0, 1],
-      );
       ExistsRule<String> exists = ExistsRule<String>(
         'users',
         column: 'email',
         verifier: mysql,
       );
-      expect(
-        await exists.failedItems(<String>[
-          'TAKEN@dox.dev',
-          'nope@dox.dev',
-        ], context),
-        <int>[1],
-      );
-      // 500 items, one only matched by the database: a few queries only
+      Future<List<int>> u(List<String> values) {
+        return unique.failedItems(values, context);
+      }
+
+      Future<List<int>> e(List<String> values) {
+        return exists.failedItems(values, context);
+      }
+
+      expect(await u(<String>['new@dox.dev', 'other@dox.dev']), <int>[]);
+      expect(await u(<String>['new@dox.dev', 'taken@dox.dev']), <int>[1]);
+      // only the database matched: it can not tell which, so all fail
+      expect(await u(<String>['new@dox.dev', 'TAKEN@dox.dev']), <int>[0, 1]);
+      expect(await e(<String>['TAKEN@dox.dev', 'TAKEN@dox.dev']), <int>[]);
+      expect(await e(<String>['taken@dox.dev', 'nope@dox.dev']), <int>[1]);
+      // `a` and `A` are one value for MySQL: the list fails (safe side)
+      expect(await e(<String>['taken@dox.dev', 'TAKEN@dox.dev']), <int>[1]);
+
+      // 500 items: always one query
       List<String> many = <String>[
         for (int i = 0; i < 499; i++) 'new$i@dox.dev',
       ]..insert(250, 'TAKEN@dox.dev');
       mysql.calls.clear();
-      expect(await unique.failedItems(many, context), <int>[250]);
-      expect(mysql.calls.length, lessThanOrEqualTo(2 + 2 * 9 + 2));
-      mysql.calls.clear();
-      List<int> missing = await exists.failedItems(many, context);
-      expect(missing, hasLength(499));
-      expect(missing.contains(250), isFalse);
-      expect(mysql.calls.length, lessThanOrEqualTo(2 + 2 * 9 + 2));
-      // one exact hit and 499 new: 2 queries
-      many[250] = 'taken@dox.dev';
-      mysql.calls.clear();
-      expect(await unique.failedItems(many, context), <int>[250]);
-      expect(mysql.calls, hasLength(2));
-      // an exact match needs one query only
-      mysql.calls.clear();
-      await exists.failedItems(<String>['taken@dox.dev'], context);
-      expect(mysql.calls, hasLength(1));
+      expect(await u(many), hasLength(500));
+      // the list fails, and the items not found as text are marked
+      expect(await e(many), hasLength(500));
+      List<String> copies = List<String>.filled(500, 'TAKEN@dox.dev');
+      expect(await e(copies), <int>[]);
+      expect(await u(copies), hasLength(500));
+      expect(mysql.calls, hasLength(4));
+    });
+
+    test('a list with null, and when the verifier can not tell', () async {
+      FakeVerifier fake = FakeVerifier(<String, List<Map<String, Object?>>>{
+        'teams': <Map<String, Object?>>[
+          <String, Object?>{'id': 1},
+        ],
+      });
+      RuleContext context = RuleContext(
+        state: ParseState(root: null),
+        path: const <Object>['ids'],
+      );
+      expect(
+        await ExistsRule<int?>(
+          'teams',
+          verifier: fake,
+        ).failedItems(<int?>[1, null], context),
+        <int>[1],
+      );
+      expect(
+        await UniqueRule<int?>(
+          'teams',
+          column: 'id',
+          verifier: fake,
+        ).failedItems(<int?>[null, 2], context),
+        <int>[],
+      );
+      UnknownVerifier unknown = UnknownVerifier();
+      expect(
+        await ExistsRule<Object>(
+          'teams',
+          verifier: unknown,
+        ).failedItems(<Object>[1, 'abc'], context),
+        <int>[0, 1],
+      );
+      expect(
+        await UniqueRule<Object>(
+          'teams',
+          column: 'id',
+          verifier: unknown,
+        ).failedItems(<Object>[1, 'abc'], context),
+        <int>[0, 1],
+      );
     });
 
     test('names are checked when the schema is built', () {
