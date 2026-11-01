@@ -55,6 +55,9 @@ class IssueCodes {
 
   static const String maxSize = 'max_size';
   static const String mimes = 'mimes';
+  static const String minSize = 'min_size';
+  static const String mimeTypes = 'mime_types';
+  static const String dimensions = 'dimensions';
 
   static const String afterOrEqual = 'after_or_equal';
   static const String beforeOrEqual = 'before_or_equal';

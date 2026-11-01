@@ -331,3 +331,45 @@ class Image {
 
   final String? message;
 }
+
+/// At least [size], like `'10KB'`. Units: `B`, `KB`, `MB`, `GB`.
+class MinSize {
+  const MinSize(this.size, {this.message});
+
+  final String size;
+  final String? message;
+}
+
+/// One of the MIME types [types], like `image/png` or `image/*`.
+/// The real type comes from the first bytes of the file, not from the
+/// content type the client sent.
+class MimeTypes {
+  const MimeTypes(this.types, {this.message});
+
+  final List<String> types;
+  final String? message;
+}
+
+/// A PNG, GIF, WebP or JPEG image whose width and height (in pixels) fit
+/// every limit given. [ratio] is width / height, like `3 / 2`.
+class Dimensions {
+  const Dimensions({
+    this.width,
+    this.height,
+    this.minWidth,
+    this.maxWidth,
+    this.minHeight,
+    this.maxHeight,
+    this.ratio,
+    this.message,
+  });
+
+  final int? width;
+  final int? height;
+  final int? minWidth;
+  final int? maxWidth;
+  final int? minHeight;
+  final int? maxHeight;
+  final double? ratio;
+  final String? message;
+}

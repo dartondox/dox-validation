@@ -1,7 +1,8 @@
 /// An uploaded file the validator can check.
 ///
 /// dox-core `RequestFile` implements it, so `v.file()` and the DTO file
-/// rules (`@MaxSize`, `@Mimes`, `@Image`) can read it.
+/// rules (`@MaxSize`, `@Mimes`, `@Image`, `@Dimensions` and more) can
+/// read it.
 abstract class FileInput {
   /// File extension from the file name, without the dot, like `png`.
   String get extension;
@@ -9,8 +10,13 @@ abstract class FileInput {
   /// Size in bytes.
   int get length;
 
-  /// The first bytes of the file (up to [FileTypes.headSize]).
-  /// The real file type comes from them.
+  /// The first bytes of the file: at least [FileTypes.headSize] bytes
+  /// when the file is that long. The real file type comes from them.
+  ///
+  /// It may hold more. The image size of a PNG, GIF or WebP is in the
+  /// first [FileTypes.headSize] bytes. A JPEG keeps its size after the
+  /// photo metadata, so `dimensions` needs more bytes for it, like the
+  /// first [ImageSize.jpegHeadSize] bytes.
   List<int> get head;
 }
 
@@ -103,6 +109,90 @@ class FileTypes {
       }
     }
     return false;
+  }
+
+  /// MIME type => the extensions it may have.
+  /// No `image/svg+xml`: an SVG file can hold scripts.
+  static const Map<String, List<String>> _mimeTypes = <String, List<String>>{
+    'image/jpeg': <String>['jpg', 'jpeg'],
+    'image/png': <String>['png'],
+    'image/gif': <String>['gif'],
+    'image/webp': <String>['webp'],
+    'image/bmp': <String>['bmp'],
+    'image/tiff': <String>['tif', 'tiff'],
+    'image/vnd.microsoft.icon': <String>['ico'],
+    'image/x-icon': <String>['ico'],
+    'image/heic': <String>['heic'],
+    'image/heif': <String>['heif'],
+    'image/avif': <String>['avif'],
+    'image/vnd.adobe.photoshop': <String>['psd'],
+    'application/pdf': <String>['pdf'],
+    'application/zip': <String>['zip'],
+    'application/gzip': <String>['gz', 'tgz'],
+    'application/x-7z-compressed': <String>['7z'],
+    'application/vnd.rar': <String>['rar'],
+    'application/x-rar-compressed': <String>['rar'],
+    'application/msword': <String>['doc'],
+    'application/vnd.ms-excel': <String>['xls'],
+    'application/vnd.ms-powerpoint': <String>['ppt'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        <String>['docx'],
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+        <String>['xlsx'],
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+        <String>['pptx'],
+    'application/vnd.oasis.opendocument.text': <String>['odt'],
+    'application/vnd.oasis.opendocument.spreadsheet': <String>['ods'],
+    'application/vnd.oasis.opendocument.presentation': <String>['odp'],
+    'application/epub+zip': <String>['epub'],
+    'application/java-archive': <String>['jar'],
+    'application/vnd.android.package-archive': <String>['apk'],
+    'application/wasm': <String>['wasm'],
+    'application/json': <String>['json'],
+    'audio/mpeg': <String>['mp3'],
+    'audio/wav': <String>['wav'],
+    'audio/x-wav': <String>['wav'],
+    'audio/ogg': <String>['ogg'],
+    'audio/flac': <String>['flac'],
+    'audio/mp4': <String>['m4a'],
+    'video/mp4': <String>['mp4', 'm4v'],
+    'video/quicktime': <String>['mov'],
+    'video/x-msvideo': <String>['avi'],
+    'video/webm': <String>['webm'],
+    'video/x-matroska': <String>['mkv'],
+    'video/3gpp': <String>['3gp'],
+    'font/woff': <String>['woff'],
+    'font/woff2': <String>['woff2'],
+    'text/plain': <String>['txt'],
+    'text/csv': <String>['csv'],
+  };
+
+  /// `true` when [file] is one of [mimeTypes], like `image/png`.
+  /// `image/*` means every image type in the list (not svg).
+  ///
+  /// The client content type is not trusted. Each MIME type is turned
+  /// into its file extensions, and [matches] checks the real bytes.
+  /// An unknown MIME type never matches.
+  static bool matchesMimeTypes(FileInput file, List<String> mimeTypes) {
+    return matches(file, extensionsOf(mimeTypes));
+  }
+
+  /// The file extensions for [mimeTypes]. `image/*` gives every image
+  /// extension in the list. Unknown MIME types give nothing.
+  static List<String> extensionsOf(List<String> mimeTypes) {
+    List<String> found = <String>[];
+    for (String type in mimeTypes) {
+      String mime = type.toLowerCase().trim();
+      if (mime.endsWith('/*')) {
+        String group = mime.substring(0, mime.length - 1);
+        for (MapEntry<String, List<String>> entry in _mimeTypes.entries) {
+          if (entry.key.startsWith(group)) found.addAll(entry.value);
+        }
+      } else {
+        found.addAll(_mimeTypes[mime] ?? const <String>[]);
+      }
+    }
+    return found;
   }
 
   /// Extensions a browser may run as a page or script.
@@ -200,5 +290,152 @@ class FileTypes {
       if (head[at + i] != text.codeUnitAt(i)) return false;
     }
     return true;
+  }
+}
+
+/// The width and height of an image, read from the first bytes only.
+///
+/// Knows PNG, GIF, WebP and JPEG. It never reads the whole image, so a
+/// big upload stays out of memory.
+class ImageSize {
+  const ImageSize(this.width, this.height);
+
+  /// How many first bytes to keep so the size of most JPEG files can be
+  /// found. A JPEG keeps its size after the photo metadata (EXIF), which
+  /// can be up to 64 KB.
+  static const int jpegHeadSize = 128 * 1024;
+
+  final int width;
+  final int height;
+
+  /// The size from the first bytes of an image ([head]).
+  /// `null` when the bytes are not a PNG, GIF, WebP or JPEG, or when the
+  /// header is cut short or broken.
+  static ImageSize? read(List<int> head) {
+    ImageSize? size = switch (FileTypes.sniff(head)) {
+      'png' => _png(head),
+      'gif' => _gif(head),
+      'webp' => _webp(head),
+      'jpg' => _jpeg(head),
+      _ => null,
+    };
+    if (size == null || size.width <= 0 || size.height <= 0) return null;
+    return size;
+  }
+
+  /// `true` when [file] is an image whose size fits every limit given.
+  /// [ratio] is width / height, like `3 / 2`. Like Laravel, a ratio
+  /// passes when it is off by less than one pixel.
+  static bool fits(
+    FileInput file, {
+    int? width,
+    int? height,
+    int? minWidth,
+    int? maxWidth,
+    int? minHeight,
+    int? maxHeight,
+    double? ratio,
+  }) {
+    ImageSize? size = read(file.head);
+    if (size == null) return false;
+    int w = size.width;
+    int h = size.height;
+    if (width != null && w != width) return false;
+    if (height != null && h != height) return false;
+    if (minWidth != null && w < minWidth) return false;
+    if (maxWidth != null && w > maxWidth) return false;
+    if (minHeight != null && h < minHeight) return false;
+    if (maxHeight != null && h > maxHeight) return false;
+    if (ratio != null) {
+      double tolerance = 1 / ((w > h ? w : h) + 1);
+      if ((ratio - w / h).abs() > tolerance) return false;
+    }
+    return true;
+  }
+
+  // PNG: the IHDR chunk comes first. Width and height are big endian.
+  static ImageSize? _png(List<int> b) {
+    if (b.length < 24 || !FileTypes._ascii(b, 12, 'IHDR')) return null;
+    return ImageSize(_be32(b, 16), _be32(b, 20));
+  }
+
+  // GIF: the logical screen size, little endian.
+  static ImageSize? _gif(List<int> b) {
+    if (b.length < 10) return null;
+    return ImageSize(_le16(b, 6), _le16(b, 8));
+  }
+
+  // WebP: one of the three VP8 chunk kinds.
+  static ImageSize? _webp(List<int> b) {
+    if (b.length < 25) return null;
+    if (FileTypes._ascii(b, 12, 'VP8 ')) {
+      if (b.length < 30) return null;
+      // lossy: a start code, then 14 bit width and height
+      if (b[23] != 0x9D || b[24] != 0x01 || b[25] != 0x2A) return null;
+      return ImageSize(_le16(b, 26) & 0x3FFF, _le16(b, 28) & 0x3FFF);
+    }
+    if (FileTypes._ascii(b, 12, 'VP8L')) {
+      // lossless: a signature byte, then 14 bit width - 1 and height - 1
+      if (b[20] != 0x2F) return null;
+      int bits = b[21] | b[22] << 8 | b[23] << 16 | b[24] << 24;
+      return ImageSize((bits & 0x3FFF) + 1, (bits >> 14 & 0x3FFF) + 1);
+    }
+    if (FileTypes._ascii(b, 12, 'VP8X')) {
+      if (b.length < 30) return null;
+      // extended: 24 bit canvas width - 1 and height - 1
+      return ImageSize(_le24(b, 24) + 1, _le24(b, 27) + 1);
+    }
+    return null;
+  }
+
+  // JPEG: walk the segments until a "start of frame" (SOF) marker.
+  static ImageSize? _jpeg(List<int> b) {
+    int i = 2;
+    while (i + 1 < b.length) {
+      if (b[i] != 0xFF) return null;
+      int marker = b[i + 1];
+      if (marker == 0xFF) {
+        i++; // fill byte
+        continue;
+      }
+      // markers without a length
+      if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD8)) {
+        i += 2;
+        continue;
+      }
+      // end of image or start of scan before any frame: no size
+      if (marker == 0xD9 || marker == 0xDA) return null;
+      if (i + 3 >= b.length) return null;
+      int length = _be16(b, i + 2);
+      if (length < 2) return null;
+      bool frame =
+          marker >= 0xC0 &&
+          marker <= 0xCF &&
+          marker != 0xC4 &&
+          marker != 0xC8 &&
+          marker != 0xCC;
+      if (frame) {
+        if (i + 9 > b.length) return null;
+        return ImageSize(_be16(b, i + 7), _be16(b, i + 5));
+      }
+      i += 2 + length;
+    }
+    return null;
+  }
+
+  static int _be16(List<int> b, int at) {
+    return b[at] << 8 | b[at + 1];
+  }
+
+  static int _be32(List<int> b, int at) {
+    return b[at] << 24 | b[at + 1] << 16 | b[at + 2] << 8 | b[at + 3];
+  }
+
+  static int _le16(List<int> b, int at) {
+    return b[at] | b[at + 1] << 8;
+  }
+
+  static int _le24(List<int> b, int at) {
+    return b[at] | b[at + 1] << 8 | b[at + 2] << 16;
   }
 }
