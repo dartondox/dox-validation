@@ -220,6 +220,10 @@ class DigitsBetween extends Rule<String> {
 /// - full: `U` (seconds since 1970), `c` (`Y-m-d\TH:i:sP`),
 ///   `r` (`D, d M Y H:i:s O`)
 ///
+/// `j`, `n`, `g`, `G`, `z` and `U` take no leading zero, like Laravel:
+/// `j/n/Y` rejects `01/02/2024`. `e` and `T` take any name that looks
+/// like a time zone; they do not check that it is a real one.
+///
 /// Put `\` before a letter to use it as text. Any other letter throws an
 /// [ArgumentError]. Every other character must be there as it is.
 /// The date must exist (`2023-02-29` fails). Names must have the case
@@ -278,15 +282,15 @@ class DateFormatted extends Rule<String> {
 
   static final Map<String, String> _parts = <String, String>{
     'd': r'(\d{2})',
-    'j': r'(\d{1,2})',
+    'j': r'([1-9]\d?)',
     'D': '(${_days.map(_short).join('|')})',
     'l': '(${_days.join('|')})',
     'N': '([1-7])',
     'w': '([0-6])',
     'S': '(st|nd|rd|th)',
-    'z': r'(\d{1,3})',
+    'z': r'(0|[1-9]\d{0,2})',
     'm': r'(\d{2})',
-    'n': r'(\d{1,2})',
+    'n': r'([1-9]\d?)',
     'M': '(${_months.map(_short).join('|')})',
     'F': '(${_months.join('|')})',
     't': r'(\d{2})',
@@ -295,9 +299,9 @@ class DateFormatted extends Rule<String> {
     'L': '([01])',
     'a': '(am|pm)',
     'A': '(AM|PM)',
-    'g': r'(\d{1,2})',
+    'g': r'([1-9]\d?)',
     'h': r'(\d{2})',
-    'G': r'(\d{1,2})',
+    'G': r'(\d|1\d|2[0-3])',
     'H': r'(\d{2})',
     'i': r'(\d{2})',
     's': r'(\d{2})',
@@ -310,7 +314,7 @@ class DateFormatted extends Rule<String> {
     'O': '([+-](?:[01]\\d|2[0-3])[0-5]\\d)',
     'Z': r'(-?\d{1,5})',
     'I': '([01])',
-    'U': r'(-?\d+)',
+    'U': r'(-?(?:0|[1-9]\d*))',
   };
 
   static const Map<String, String> _full = <String, String>{
@@ -325,7 +329,17 @@ class DateFormatted extends Rule<String> {
   /// Throws an [ArgumentError] when [format] has a letter that is not
   /// supported (and not escaped with `\`).
   static void checkFormat(String format) {
-    _compile(format);
+    _compiled(format);
+  }
+
+  // ponytail: no limit, formats come from code, not from input
+  static final Map<String, (RegExp, List<String>)> _cache =
+      <String, (RegExp, List<String>)>{};
+
+  static final RegExp _letter = RegExp('[a-zA-Z]');
+
+  static (RegExp, List<String>) _compiled(String format) {
+    return _cache[format] ??= _compile(format);
   }
 
   /// The regex for [format], and the letter of each group.
@@ -351,7 +365,7 @@ class DateFormatted extends Rule<String> {
           letters.add(char);
           continue;
         }
-        if (RegExp('[a-zA-Z]').hasMatch(char)) {
+        if (_letter.hasMatch(char)) {
           throw ArgumentError.value(
             format,
             'format',
@@ -370,7 +384,7 @@ class DateFormatted extends Rule<String> {
 
   /// `true` when [value] is a real date in [format].
   static bool matches(String value, String format) {
-    (RegExp, List<String>) compiled = _compile(format);
+    (RegExp, List<String>) compiled = _compiled(format);
     List<String> letters = compiled.$2;
     RegExpMatch? match = compiled.$1.firstMatch(value);
     if (match == null) return false;

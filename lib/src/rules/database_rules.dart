@@ -32,18 +32,51 @@ abstract class PresenceVerifier {
     String? connection,
   });
 
+  /// The same names the dox_orm query builder takes, without `*` and
+  /// `as`: Unicode letters, digits, `_` and `$`, with `.` between parts.
   static final RegExp _name = RegExp(
-    r'^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$',
+    r'^(?:[\p{L}\p{N}_$]+\.)*[\p{L}\p{N}_$]+$',
+    unicode: true,
   );
 
   /// Throws an [ArgumentError] when [name] is not a plain table or column
-  /// name (letters, digits and `_`, with one optional `schema.` part).
-  /// Names go into the SQL text, so only safe names may pass.
+  /// name: letters, digits, `_` and `$`, with `.` between parts, like
+  /// `2fa_codes` or `public.users`. Names go into the SQL text, so only
+  /// plain names may pass.
   static String checkName(String name) {
     if (!_name.hasMatch(name)) {
       throw ArgumentError.value(name, 'name', 'Not a safe table or column');
     }
     return name;
+  }
+
+  /// The indexes of [values] that [find] found in the database.
+  ///
+  /// The found values come back as text, and first they are matched to
+  /// the items as text. But the database can match more: MySQL ignores
+  /// case, and `1.0` finds the row `1`. When some found rows match no
+  /// item, each item that did not match is asked again alone, and the
+  /// database answer is used. So the extra queries run only then.
+  static Future<Set<int>> foundItems<T>(
+    List<T> values,
+    Future<Set<String>> Function(List<T> values) find,
+  ) async {
+    Set<String> found = await find(values);
+    Set<int> hits = <int>{};
+    Set<String> used = <String>{};
+    for (int i = 0; i < values.length; i++) {
+      String text = '${values[i]}';
+      if (found.contains(text)) {
+        hits.add(i);
+        used.add(text);
+      }
+    }
+    if (used.length == found.length) return hits;
+    for (int i = 0; i < values.length; i++) {
+      if (hits.contains(i)) continue;
+      if ((await find(<T>[values[i]])).isNotEmpty) hits.add(i);
+    }
+    return hits;
   }
 
   static PresenceVerifier _use(PresenceVerifier? own) {
@@ -104,13 +137,13 @@ class ExistsRule<T> extends AsyncRule<T> {
     );
   }
 
-  /// Many values: the found values are matched to the items as text.
+  /// Many values: see [PresenceVerifier.foundItems].
   @override
   Future<List<int>> failedItems(List<T> values, RuleContext context) async {
-    Set<String> found = await _found(values);
+    Set<int> found = await PresenceVerifier.foundItems(values, _found);
     return <int>[
       for (int i = 0; i < values.length; i++)
-        if (!found.contains('${values[i]}')) i,
+        if (!found.contains(i)) i,
     ];
   }
 }
@@ -178,13 +211,10 @@ class UniqueRule<T> extends AsyncRule<T> {
     );
   }
 
-  /// Many values: the found values are matched to the items as text.
+  /// Many values: see [PresenceVerifier.foundItems].
   @override
   Future<List<int>> failedItems(List<T> values, RuleContext context) async {
-    Set<String> taken = await _found(values);
-    return <int>[
-      for (int i = 0; i < values.length; i++)
-        if (taken.contains('${values[i]}')) i,
-    ];
+    Set<int> taken = await PresenceVerifier.foundItems(values, _found);
+    return taken.toList()..sort();
   }
 }

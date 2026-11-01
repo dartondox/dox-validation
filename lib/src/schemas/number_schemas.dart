@@ -26,13 +26,16 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
   }
 
   /// A row in [table] has this value in [column]. Laravel `exists`.
-  /// Needs `parseAsync` and a [PresenceVerifier].
+  /// Needs `parseAsync` and a [PresenceVerifier]. A name that is not
+  /// plain throws an [ArgumentError] here.
   S exists(
     String table, {
     String column = 'id',
     String? connection,
     String? message,
   }) {
+    PresenceVerifier.checkName(table);
+    PresenceVerifier.checkName(column);
     return use(
       ExistsRule<N>(
         table,
@@ -55,6 +58,9 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
     String? connection,
     String? message,
   }) {
+    PresenceVerifier.checkName(table);
+    PresenceVerifier.checkName(column);
+    PresenceVerifier.checkName(ignoreColumn);
     return use(
       UniqueRule<N>(
         table,

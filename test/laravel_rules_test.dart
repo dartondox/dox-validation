@@ -421,6 +421,25 @@ void main() {
       expect(m('10:00 UTC', 'H:i T'), true);
     });
 
+    test('no leading zero for j, n, g, G, z and U, like Laravel', () {
+      bool m(String value, String format) {
+        return DateFormatted.matches(value, format);
+      }
+
+      expect(m('1/2/2024', 'j/n/Y'), true);
+      expect(m('01/02/2024', 'j/n/Y'), false);
+      expect(m('9:05', 'g:i'), true);
+      expect(m('09:05', 'g:i'), false);
+      expect(m('0:05', 'G:i'), true);
+      expect(m('00:05', 'G:i'), false);
+      expect(m('24:05', 'G:i'), false);
+      expect(m('0', 'z'), true);
+      expect(m('031', 'z'), false);
+      expect(m('0', 'U'), true);
+      expect(m('-5', 'U'), true);
+      expect(m('0170', 'U'), false);
+    });
+
     test('an unknown letter throws, an escaped one is text', () {
       expect(
         () => DateFormatted.matches('2024-W01', 'Y-\\WW'),
@@ -595,19 +614,22 @@ void main() {
       );
     });
 
-    test('unsafe table and column names throw', () async {
-      for (StringSchema s in <StringSchema>[
-        v.string().exists('teams; drop table x'),
-        v.string().exists('teams', column: 'id--'),
-        v.string().unique('users', column: 'a b'),
-        v.string().unique(
+    test('a rule made by hand checks names before the query', () async {
+      for (Rule<String> rule in <Rule<String>>[
+        ExistsRule<String>('teams; drop table x'),
+        ExistsRule<String>('teams', column: 'id--'),
+        UniqueRule<String>('users', column: 'a b'),
+        UniqueRule<String>(
           'users',
           column: 'email',
           ignore: 1,
           ignoreColumn: 'x)',
         ),
       ]) {
-        await expectLater(s.safeParseAsync('a'), throwsArgumentError);
+        await expectLater(
+          v.string().use(rule).safeParseAsync('a'),
+          throwsArgumentError,
+        );
       }
       expect(db.calls, isEmpty);
       expect(PresenceVerifier.checkName('public.users'), 'public.users');
@@ -618,6 +640,65 @@ void main() {
         () => v.string().unique('users', column: 'email').safeParse('a'),
         throwsStateError,
       );
+    });
+
+    test('a list: a case-only match is still found (MySQL)', () async {
+      FakeVerifier mysql = FakeVerifier(<String, List<Map<String, Object?>>>{
+        'users': <Map<String, Object?>>[
+          <String, Object?>{'id': 5, 'email': 'taken@dox.dev'},
+        ],
+      }, ignoreCase: true);
+      RuleContext context = RuleContext(
+        state: ParseState(root: null),
+        path: const <Object>['emails'],
+      );
+      UniqueRule<String> unique = UniqueRule<String>(
+        'users',
+        column: 'email',
+        verifier: mysql,
+      );
+      expect(
+        await unique.failedItems(<String>[
+          'new@dox.dev',
+          'TAKEN@dox.dev',
+        ], context),
+        <int>[1],
+      );
+      ExistsRule<String> exists = ExistsRule<String>(
+        'users',
+        column: 'email',
+        verifier: mysql,
+      );
+      expect(
+        await exists.failedItems(<String>[
+          'TAKEN@dox.dev',
+          'nope@dox.dev',
+        ], context),
+        <int>[1],
+      );
+      // an exact match needs one query only
+      mysql.calls.clear();
+      await exists.failedItems(<String>['taken@dox.dev'], context);
+      expect(mysql.calls, hasLength(1));
+    });
+
+    test('names are checked when the schema is built', () {
+      expect(() => v.string().exists('teams; drop'), throwsArgumentError);
+      expect(
+        () => v.int().unique('users', column: 'email', ignoreColumn: 'x)'),
+        throwsArgumentError,
+      );
+      expect(
+        () => v.string().unique('users', column: 'a b'),
+        throwsArgumentError,
+      );
+      // names the ORM takes are fine
+      expect(
+        v.string().unique('2fa_codes', column: 'code'),
+        isA<StringSchema>(),
+      );
+      expect(PresenceVerifier.checkName('db.public.users'), 'db.public.users');
+      expect(PresenceVerifier.checkName('é_table'), 'é_table');
     });
 
     test('a key from the user is never the column', () async {

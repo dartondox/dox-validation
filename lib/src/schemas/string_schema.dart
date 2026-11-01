@@ -178,13 +178,16 @@ class StringSchema extends BaseSchema<String>
   }
 
   /// A row in [table] has this value in [column]. Laravel `exists`.
-  /// Needs `parseAsync` and a [PresenceVerifier].
+  /// Needs `parseAsync` and a [PresenceVerifier]. A name that is not
+  /// plain throws an [ArgumentError] here.
   StringSchema exists(
     String table, {
     String column = 'id',
     String? connection,
     String? message,
   }) {
+    PresenceVerifier.checkName(table);
+    PresenceVerifier.checkName(column);
     return use(
       ExistsRule<String>(
         table,
@@ -207,6 +210,9 @@ class StringSchema extends BaseSchema<String>
     String? connection,
     String? message,
   }) {
+    PresenceVerifier.checkName(table);
+    PresenceVerifier.checkName(column);
+    PresenceVerifier.checkName(ignoreColumn);
     return use(
       UniqueRule<String>(
         table,
