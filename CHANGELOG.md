@@ -1,5 +1,19 @@
 ## Unreleased
 
+- New Laravel-style rules. Each works in fluent schemas and as a DTO annotation, unless noted:
+  - `same('other')` / `@Same('other')`: the value must equal another key in the same object.
+  - `confirmed()` / `@Confirmed()`: `<field>_confirmation` must have the same value.
+  - `.optional().requiredIf('type', 'company')` / `@RequiredIf('type', 'company')`: required when another key has a value.
+  - `.optional().requiredWith(['phone'])` / `@RequiredWith(['phone'])`: required when another key is present.
+  - `json()` / `@Json()`: the text must be valid JSON.
+  - `digits(6)` / `@Digits(6)` and `digitsBetween(4, 6)` / `@DigitsBetween(4, 6)`: only digits, with this length.
+  - `between(1, 10)` on `v.int()` and `v.num()`. DTOs already have `@Range(1, 10)`.
+  - `dateFormat('Y-m-d')` / `@DateFormatted('Y-m-d')`: a real date in this format.
+  - `password(min: 8, letters: true, mixedCase: true, numbers: true, symbols: true)` / `@Password(...)`: a strong password. It does not check leaked passwords.
+  - `exists('teams')` and `unique('users')` on `v.string()`, `v.int()` and `v.num()`. They need `parseAsync`. They ask a `PresenceVerifier`, which `dox_orm` sets when the database starts. Table and column names are checked: only letters, digits and `_` pass. DTOs keep `@Exists` and `@Unique` from `dox_orm`.
+- `@RequiredIf` and `@RequiredWith` need a `dox_builder` that knows them.
+- `RuleContext.sibling('key')` reads another key of the same object.
+
 - `ip()` and `@Ip` now reject IPv4 addresses with leading zeros, like `01.1.1.1`. Laravel does the same. Some tools read `010` as octal (8), so these addresses are not what they look like.
 
 ## 3.0.0

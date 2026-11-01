@@ -1,3 +1,4 @@
+import '../rules/field_rules.dart';
 import 'refine_rules.dart';
 import 'rule.dart';
 import 'schema.dart';
@@ -61,6 +62,17 @@ mixin FluentSchema<S extends BaseSchema<O>, O> on BaseSchema<O> {
     Future<void> Function(O value, RuleContext context) check,
   ) {
     return use(SuperRefineRule<O>(asyncCheck: check));
+  }
+
+  /// Must equal the key [other] in the same object. Laravel `same`.
+  S same(String other, {String? message}) {
+    return use(Same<O>(other, message: message));
+  }
+
+  /// The key `<field>_confirmation` (or [other]) in the same object must
+  /// have the same value. Laravel `confirmed`.
+  S confirmed({String? other, String? message}) {
+    return use(Confirmed<O>(other: other, message: message));
   }
 
   /// Add a description for docs (JSON Schema `description`).

@@ -140,6 +140,16 @@ class RuleContext {
     return DataPath.readDotted(state.root, dottedPath);
   }
 
+  /// Read the raw input of [key] in the same object as this value, like
+  /// `password_confirmation` next to `password`. Returns `undefined`
+  /// when it is missing.
+  Object? sibling(String key) {
+    List<Object> parent = path.isEmpty
+        ? const <Object>[]
+        : path.sublist(0, path.length - 1);
+    return DataPath.read(state.root, <Object>[...parent, key]);
+  }
+
   /// Add an issue for a failed [rule].
   void fail(Rule<Object?> rule, {String? fallback}) {
     state.addIssue(

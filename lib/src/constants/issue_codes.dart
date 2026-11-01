@@ -58,4 +58,15 @@ class IssueCodes {
 
   static const String afterOrEqual = 'after_or_equal';
   static const String beforeOrEqual = 'before_or_equal';
+
+  static const String same = 'same';
+  static const String confirmed = 'confirmed';
+  static const String requiredIf = 'required_if';
+  static const String requiredWith = 'required_with';
+  static const String exists = 'exists';
+  static const String unique = 'unique';
+  static const String digits = 'digits';
+  static const String digitsBetween = 'digits_between';
+  static const String dateFormat = 'date_format';
+  static const String password = 'password';
 }

@@ -92,3 +92,22 @@ class MultipleOfRule<N extends num> extends BuiltInRule<N> {
     return value % factor == 0;
   }
 }
+
+/// Number must be from [min] to [max].
+class BetweenRule<N extends num> extends BuiltInRule<N> {
+  BetweenRule(this.min, this.max, {super.message})
+    : super(
+        IssueCodes.between,
+        DefaultMessages.between,
+        params: <String, Object?>{'min': min, 'max': max},
+        json: <String, dynamic>{'minimum': min, 'maximum': max},
+      );
+
+  final num min;
+  final num max;
+
+  @override
+  bool check(N value, RuleContext context) {
+    return value >= min && value <= max;
+  }
+}

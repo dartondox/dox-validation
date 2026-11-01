@@ -6,6 +6,8 @@ import '../core/message_resolver.dart';
 import '../core/parse_state.dart';
 import '../core/rule.dart';
 import '../core/sentinels.dart';
+import '../rules/field_rules.dart';
+import 'dto_annotations.dart';
 import 'file_types.dart';
 
 /// The state of one DTO check. The generated code of a DTO calls it.
@@ -91,6 +93,30 @@ class DtoState extends ParseState {
       IssueCodes.required,
       DefaultMessages.required,
       null,
+      messages: messages,
+    );
+  }
+
+  /// The field [key] is missing. Add an issue when [rule] (a
+  /// `@RequiredIf` or `@RequiredWith`) says it is required. [input] is
+  /// the raw object that holds the field.
+  void requiredWhen(
+    RequiredWhen rule,
+    Map<dynamic, dynamic> input,
+    List<Object> path,
+    Object key,
+    Map<String, String> messages,
+  ) {
+    if (_hasIssue(path, key) || !rule.appliesTo(input)) return;
+    RequiredWhenIssue issue = RequiredWhenIssue(rule);
+    fail(
+      path,
+      key,
+      issue.code,
+      issue.fallback,
+      null,
+      params: issue.params,
+      message: rule.message,
       messages: messages,
     );
   }

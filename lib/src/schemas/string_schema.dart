@@ -5,6 +5,8 @@ import '../core/fluent_schema.dart';
 import '../core/parse_state.dart';
 import '../core/schema.dart';
 import '../core/sentinels.dart';
+import '../rules/database_rules.dart';
+import '../rules/field_rules.dart';
 import '../rules/string_rules.dart';
 
 /// Schema for text. Made by `v.string()`.
@@ -125,6 +127,90 @@ class StringSchema extends BaseSchema<String>
         Patterns.alphaNumeric,
         code: IssueCodes.alphaNumeric,
         defaultMessage: DefaultMessages.alphaNumeric,
+        message: message,
+      ),
+    );
+  }
+
+  /// Must be valid JSON text. Laravel `json`.
+  StringSchema json({String? message}) {
+    return use(Json(message: message));
+  }
+
+  /// Only digits (0-9), exactly [length] of them. Laravel `digits`.
+  StringSchema digits(int length, {String? message}) {
+    return use(Digits(length, message: message));
+  }
+
+  /// Only digits (0-9), from [min] to [max] of them.
+  /// Laravel `digits_between`.
+  StringSchema digitsBetween(int min, int max, {String? message}) {
+    return use(DigitsBetween(min, max, message: message));
+  }
+
+  /// A real date in [format], like `'Y-m-d'`. Laravel `date_format`.
+  /// See [DateFormatted] for the format letters.
+  StringSchema dateFormat(String format, {String? message}) {
+    return use(DateFormatted(format, message: message));
+  }
+
+  /// A strong password. See [Password].
+  StringSchema password({
+    int min = 8,
+    bool letters = false,
+    bool mixedCase = false,
+    bool numbers = false,
+    bool symbols = false,
+    String? message,
+  }) {
+    return use(
+      Password(
+        min: min,
+        letters: letters,
+        mixedCase: mixedCase,
+        numbers: numbers,
+        symbols: symbols,
+        message: message,
+      ),
+    );
+  }
+
+  /// A row in [table] has this value in [column]. Laravel `exists`.
+  /// Needs `parseAsync` and a [PresenceVerifier].
+  StringSchema exists(
+    String table, {
+    String column = 'id',
+    String? connection,
+    String? message,
+  }) {
+    return use(
+      ExistsRule<String>(
+        table,
+        column: column,
+        connection: connection,
+        message: message,
+      ),
+    );
+  }
+
+  /// No row in [table] has this value in [column] (default: the input
+  /// key). [ignore] skips the row where [ignoreColumn] equals it.
+  /// Laravel `unique`. Needs `parseAsync` and a [PresenceVerifier].
+  StringSchema unique(
+    String table, {
+    String? column,
+    Object? ignore,
+    String ignoreColumn = 'id',
+    String? connection,
+    String? message,
+  }) {
+    return use(
+      UniqueRule<String>(
+        table,
+        column: column,
+        ignore: ignore,
+        ignoreColumn: ignoreColumn,
+        connection: connection,
         message: message,
       ),
     );

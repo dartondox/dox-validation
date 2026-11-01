@@ -37,6 +37,8 @@ export 'src/dto/file_types.dart';
 export 'src/dto/maybe.dart';
 export 'src/rules/built_in_rule.dart';
 export 'src/rules/collection_rules.dart';
+export 'src/rules/database_rules.dart';
+export 'src/rules/field_rules.dart';
 export 'src/rules/number_rules.dart';
 export 'src/rules/string_rules.dart';
 export 'src/schemas/list_schema.dart';

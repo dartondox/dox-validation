@@ -4,6 +4,7 @@ import '../core/fluent_schema.dart';
 import '../core/parse_state.dart';
 import '../core/schema.dart';
 import '../core/sentinels.dart';
+import '../rules/database_rules.dart';
 import '../rules/number_rules.dart';
 
 /// Shared number methods for [IntSchema] and [NumSchema].
@@ -17,6 +18,52 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
   /// At most [value].
   S max(num value, {String? message}) {
     return use(MaxRule<N>(value, message: message));
+  }
+
+  /// From [min] to [max]. Laravel `between`.
+  S between(num min, num max, {String? message}) {
+    return use(BetweenRule<N>(min, max, message: message));
+  }
+
+  /// A row in [table] has this value in [column]. Laravel `exists`.
+  /// Needs `parseAsync` and a [PresenceVerifier].
+  S exists(
+    String table, {
+    String column = 'id',
+    String? connection,
+    String? message,
+  }) {
+    return use(
+      ExistsRule<N>(
+        table,
+        column: column,
+        connection: connection,
+        message: message,
+      ),
+    );
+  }
+
+  /// No row in [table] has this value in [column] (default: the input
+  /// key). [ignore] skips the row where [ignoreColumn] equals it.
+  /// Laravel `unique`. Needs `parseAsync` and a [PresenceVerifier].
+  S unique(
+    String table, {
+    String? column,
+    Object? ignore,
+    String ignoreColumn = 'id',
+    String? connection,
+    String? message,
+  }) {
+    return use(
+      UniqueRule<N>(
+        table,
+        column: column,
+        ignore: ignore,
+        ignoreColumn: ignoreColumn,
+        connection: connection,
+        message: message,
+      ),
+    );
   }
 
   /// Greater than [value].
