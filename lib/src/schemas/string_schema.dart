@@ -64,7 +64,7 @@ class StringSchema extends BaseSchema<String>
     return use(UuidRule(message: message));
   }
 
-  /// Must be an IPv4 address.
+  /// Must be an IPv4 or IPv6 address.
   StringSchema ip({String? message}) {
     return use(IpRule(message: message));
   }
@@ -106,7 +106,7 @@ class StringSchema extends BaseSchema<String>
     );
   }
 
-  /// Only letters, dash and underscore.
+  /// Only letters, numbers, dash and underscore.
   StringSchema alphaDash({String? message}) {
     return use(
       RegexRule(
