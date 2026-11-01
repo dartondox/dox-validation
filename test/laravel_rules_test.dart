@@ -686,9 +686,12 @@ void main() {
       }
 
       expect(await u(<String>['new@dox.dev', 'other@dox.dev']), <int>[]);
-      // any row found: every item fails (it can not tell which matched)
-      expect(await u(<String>['new@dox.dev', 'taken@dox.dev']), <int>[0, 1]);
-      expect(await u(<String>['taken@dox.dev', 'TAKEN@dox.dev']), <int>[0, 1]);
+      // the row is an item by its exact text: only that item fails
+      expect(await u(<String>['new@dox.dev', 'taken@dox.dev']), <int>[1]);
+      // every found row is an item by text, so only that item fails. On
+      // MySQL `TAKEN@` is taken too, but one query can not tell (same as
+      // 3.0.1; a unique index stops the insert)
+      expect(await u(<String>['taken@dox.dev', 'TAKEN@dox.dev']), <int>[0]);
       // only the database matched: it can not tell which, so all fail
       expect(await u(<String>['new@dox.dev', 'TAKEN@dox.dev']), <int>[0, 1]);
       // an item passes only when its exact text is found
