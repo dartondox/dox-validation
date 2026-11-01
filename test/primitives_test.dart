@@ -100,6 +100,10 @@ void main() {
       expect(v.string().uuid().safeParse('abc').success, false);
       expect(v.string().ip().safeParse('192.168.1.1').success, true);
       expect(v.string().ip().safeParse('999.1.1.1').success, false);
+      expect(v.string().ip().safeParse('01.1.1.1').success, false);
+      expect(v.string().ip().safeParse('10.0.0.010').success, false);
+      expect(v.string().ip().safeParse('0.0.0.0').success, true);
+      expect(v.string().ip().safeParse('100.200.10.0').success, true);
       expect(v.string().ip().safeParse('::1').success, true);
       expect(
         v.string().ip().safeParse('2001:db8::8a2e:370:7334').success,
