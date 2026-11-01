@@ -1,3 +1,7 @@
+## Unreleased
+
+- `ip()` and `@Ip` now reject IPv4 addresses with leading zeros, like `01.1.1.1`. Laravel does the same. Some tools read `010` as octal (8), so these addresses are not what they look like.
+
 ## 3.0.0
 
 - The first stable release.
