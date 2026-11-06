@@ -1002,6 +1002,29 @@ void main() {
       ]);
     });
 
+    test('a nested DTO message never reaches a field outside it', () {
+      DtoState s = DtoState(root: <String, dynamic>{});
+      const Map<String, String> root = <String, String>{
+        'required': 'root code',
+      };
+      // address holds a nested DTO too, so its messages are kept
+      const Map<String, String> address = <String, String>{
+        'city.required': 'address city',
+        'tags.*.required': 'address tag',
+      };
+      s.object(<String, dynamic>{}, const <Object>[], 'address', root);
+      s.object(<String, dynamic>{}, const <Object>['address'], 'geo', address);
+      s.required(const <Object>['address'], 'city', address);
+      s.required(const <Object>['address', 'tags'], 2, address);
+      // a root field with the same name gets the root message
+      s.required(const <Object>[], 'city', root);
+      expect(s.issues.map((ValidationIssue i) => i.message).toList(), <String>[
+        'address city',
+        'address tag',
+        'root code',
+      ]);
+    });
+
     test('DtoState.requiredWhen adds the issue with DTO messages', () {
       DtoState s = DtoState(root: <String, dynamic>{});
       Map<String, dynamic> input = <String, dynamic>{'type': 'company'};

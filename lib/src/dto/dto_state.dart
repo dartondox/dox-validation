@@ -76,13 +76,15 @@ class DtoState extends ParseState {
     List<Object> full = <Object>[...path, key];
     String? text = message;
     if (text == null && (messages.isNotEmpty || _outer.isNotEmpty)) {
-      String dotted = '${full.join('.')}.$code';
-      String wildcard = '${_wildcard(full)}.$code';
-      text = messages[dotted] ?? messages[wildcard];
+      // keys are relative to the DTO that owns the messages
+      text = _find(messages, full, _baseOf(path).length, code);
       // the messages of an outer DTO, like Laravel: the root DTO can
       // name `address.city.required` for a field of a nested DTO
       for (int i = 0; text == null && i < _outer.length; i++) {
-        text = _outer[i][dotted] ?? _outer[i][wildcard];
+        (List<Object>, Map<String, String>) outer = _outer[i];
+        if (_startsWith(full, outer.$1)) {
+          text = _find(outer.$2, full, outer.$1.length, code);
+        }
       }
       text ??=
           messages['${ParseState.fieldName(full)}.$code'] ?? messages[code];
@@ -97,10 +99,46 @@ class DtoState extends ParseState {
     );
   }
 
-  /// The `@Dto(messages:)` of the DTOs that hold a nested DTO. Filled by
-  /// [object]. Their keys are full paths, so an old one never matches a
-  /// wrong field.
-  final List<Map<String, String>> _outer = <Map<String, String>>[];
+  /// The path of each nested DTO in this check. Filled by [object].
+  final List<List<Object>> _bases = <List<Object>>[];
+
+  /// The `@Dto(messages:)` of each DTO that holds a nested DTO, with the
+  /// path of that DTO. Filled by [object]. A map is used only for a field
+  /// under its path, and its keys are relative to that path.
+  final List<(List<Object>, Map<String, String>)> _outer =
+      <(List<Object>, Map<String, String>)>[];
+
+  /// The path of the DTO that checks a field at [path]: the longest
+  /// nested DTO path that [path] starts with, else the root.
+  List<Object> _baseOf(List<Object> path) {
+    List<Object> base = const <Object>[];
+    for (List<Object> one in _bases) {
+      if (one.length > base.length && _startsWith(path, one)) base = one;
+    }
+    return base;
+  }
+
+  static bool _startsWith(List<Object> path, List<Object> prefix) {
+    if (prefix.length > path.length) return false;
+    for (int i = 0; i < prefix.length; i++) {
+      if (path[i] != prefix[i]) return false;
+    }
+    return true;
+  }
+
+  /// The message for [full] in [messages], by the path after the first
+  /// [skip] parts: as it is, then with `*` for list indexes.
+  static String? _find(
+    Map<String, String> messages,
+    List<Object> full,
+    int skip,
+    String code,
+  ) {
+    if (messages.isEmpty) return null;
+    List<Object> rest = full.sublist(skip);
+    return messages['${rest.join('.')}.$code'] ??
+        messages['${_wildcard(rest)}.$code'];
+  }
 
   /// [path] as dotted text with `*` for each list index.
   static String _wildcard(List<Object> path) {
@@ -487,8 +525,17 @@ class DtoState extends ParseState {
     Map<String, String> m,
   ) {
     if (raw is Map) {
-      // the nested DTO may need these messages (see [fail])
-      if (m.isNotEmpty && !_outer.contains(m)) _outer.add(m);
+      // the nested DTO may need the outer messages (see [fail])
+      if (m.isNotEmpty) {
+        List<Object> base = _baseOf(path);
+        // the items of a list share one entry
+        if (_outer.isEmpty ||
+            !identical(_outer.last.$1, base) ||
+            !identical(_outer.last.$2, m)) {
+          _outer.add((base, m));
+        }
+      }
+      _bases.add(<Object>[...path, key]);
       return raw;
     }
     if (raw == null || raw is Undefined) return raw;
