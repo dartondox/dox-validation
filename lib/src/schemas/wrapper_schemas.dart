@@ -140,7 +140,7 @@ class NullableSchema<O> extends BaseSchema<O?>
   @override
   Object? parseValue(Object? input, ParseState state, List<Object> path) {
     if (input == null) {
-      return null;
+      return _nullOrMissing(state, path);
     }
     int before = state.issues.length;
     Object? output = inner.parseValue(input, state, path);
@@ -154,7 +154,7 @@ class NullableSchema<O> extends BaseSchema<O?>
     List<Object> path,
   ) async {
     if (input == null) {
-      return null;
+      return _nullOrMissing(state, path);
     }
     int before = state.issues.length;
     Object? output = await inner.parseValueAsync(input, state, path);
@@ -169,6 +169,22 @@ class NullableSchema<O> extends BaseSchema<O?>
   @override
   Map<String, dynamic> jsonSchemaBase() {
     return JsonSchemaTools.makeNullable(inner.toJsonSchema());
+  }
+
+  /// `null` passes, unless the inner schema is `.optional()` with a
+  /// `requiredIf` / `requiredWith` rule that applies. Without this,
+  /// `.optional().requiredIf(...).nullable()` let `null` through.
+  Object? _nullOrMissing(ParseState state, List<Object> path) {
+    Schema<O> inner = this.inner;
+    if (inner is OptionalSchema &&
+        (inner as OptionalSchema<Object?>)._missingButRequired(
+          null,
+          state,
+          path,
+        )) {
+      return invalid;
+    }
+    return null;
   }
 
   @override
