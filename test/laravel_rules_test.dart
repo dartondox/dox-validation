@@ -312,6 +312,25 @@ void main() {
       );
     });
 
+    test('issues keep the order of the shape', () async {
+      ObjectSchema s = v.object(<String, Schema<Object?>>{
+        'vat': v.string().optional().requiredIf('type', 'company'),
+        'type': v.string(),
+        'age': v.int(),
+      });
+      Map<String, dynamic> input = <String, dynamic>{'type': 'company'};
+      for (ParseResult<Map<String, dynamic>> r
+          in <ParseResult<Map<String, dynamic>>>[
+            s.safeParse(input),
+            await s.safeParseAsync(input),
+          ]) {
+        expect(
+          r.issues.map((ValidationIssue i) => i.path.join('.')).toList(),
+          <String>['vat', 'age'],
+        );
+      }
+    });
+
     test('.nullable() after requiredIf still checks null', () async {
       ObjectSchema s = v.object(<String, Schema<Object?>>{
         'type': v.string(),
@@ -333,6 +352,55 @@ void main() {
       // null still passes when the rule does not apply
       expect(
         s.safeParse(<String, dynamic>{'type': 'person', 'vat': null}).success,
+        true,
+      );
+    });
+
+    test('.nullable() looks through every wrapper for the rule', () async {
+      ObjectSchema s = v.object(<String, Schema<Object?>>{
+        'type': v.string(),
+        'a': v
+            .string()
+            .optional()
+            .requiredIf('type', 'company')
+            .transform((String? x) => x)
+            .nullable(),
+        'b': v
+            .string()
+            .optional()
+            .requiredIf('type', 'company')
+            .nullable()
+            .nullable(),
+        'c': v
+            .string()
+            .optional()
+            .requiredIf('type', 'company')
+            .defaultTo('x')
+            .nullable(),
+      });
+      Map<String, dynamic> company = <String, dynamic>{
+        'type': 'company',
+        'a': null,
+        'b': null,
+        'c': null,
+      };
+      for (ParseResult<Map<String, dynamic>> r
+          in <ParseResult<Map<String, dynamic>>>[
+            s.safeParse(company),
+            await s.safeParseAsync(company),
+          ]) {
+        expect(
+          r.issues.map((ValidationIssue i) => i.path.join('.')).toList(),
+          <String>['a', 'b', 'c'],
+        );
+      }
+      expect(
+        s.safeParse(<String, dynamic>{
+          'type': 'person',
+          'a': null,
+          'b': null,
+          'c': null,
+        }).success,
         true,
       );
     });
@@ -886,6 +954,77 @@ void main() {
   });
 
   group('DTO helpers |', () {
+    test('DTO messages match the full dotted path, like Laravel', () {
+      DtoState s = DtoState(root: <String, dynamic>{});
+      const Map<String, String> m = <String, String>{
+        'address.city.required': 'full',
+        'tags.*.required': 'wildcard',
+        'zip.required': 'last key',
+        'required': 'code',
+      };
+      s.required(const <Object>['address'], 'city', m);
+      s.required(const <Object>['tags'], 1, m);
+      s.required(const <Object>['address'], 'zip', m);
+      s.required(const <Object>['other'], 'city', m);
+      expect(s.issues.map((ValidationIssue i) => i.message).toList(), <String>[
+        'full',
+        'wildcard',
+        'last key',
+        'code',
+      ]);
+    });
+
+    test('a nested DTO uses the full path messages of the outer DTO', () {
+      // like the generated code: the outer DTO reads `address` with its
+      // messages, then the nested DTO checks `city` with its own
+      DtoState s = DtoState(root: <String, dynamic>{});
+      const Map<String, String> outer = <String, String>{
+        'address.city.required': 'Tell us the city',
+        'zip.required': 'outer last key: not used',
+      };
+      const Map<String, String> inner = <String, String>{
+        'street.required': 'inner',
+      };
+      Object? address = s.object(
+        <String, dynamic>{},
+        const <Object>[],
+        'address',
+        outer,
+      );
+      expect(address, isA<Map<dynamic, dynamic>>());
+      s.required(const <Object>['address'], 'city', inner);
+      s.required(const <Object>['address'], 'street', inner);
+      s.required(const <Object>['address'], 'zip', inner);
+      expect(s.issues.map((ValidationIssue i) => i.message).toList(), <String>[
+        'Tell us the city',
+        'inner',
+        'The zip is required',
+      ]);
+    });
+
+    test('a nested DTO message never reaches a field outside it', () {
+      DtoState s = DtoState(root: <String, dynamic>{});
+      const Map<String, String> root = <String, String>{
+        'required': 'root code',
+      };
+      // address holds a nested DTO too, so its messages are kept
+      const Map<String, String> address = <String, String>{
+        'city.required': 'address city',
+        'tags.*.required': 'address tag',
+      };
+      s.object(<String, dynamic>{}, const <Object>[], 'address', root);
+      s.object(<String, dynamic>{}, const <Object>['address'], 'geo', address);
+      s.required(const <Object>['address'], 'city', address);
+      s.required(const <Object>['address', 'tags'], 2, address);
+      // a root field with the same name gets the root message
+      s.required(const <Object>[], 'city', root);
+      expect(s.issues.map((ValidationIssue i) => i.message).toList(), <String>[
+        'address city',
+        'address tag',
+        'root code',
+      ]);
+    });
+
     test('DtoState.requiredWhen adds the issue with DTO messages', () {
       DtoState s = DtoState(root: <String, dynamic>{});
       Map<String, dynamic> input = <String, dynamic>{'type': 'company'};

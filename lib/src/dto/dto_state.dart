@@ -58,9 +58,11 @@ class DtoState extends ParseState {
 
   /// Add an issue at `[...path, key]`.
   ///
-  /// The message is [message] (from the annotation), else
-  /// `messages['key.code']`, else `messages['code']` (from `@Dto(messages:)`),
-  /// else the [MessageResolver] with [fallback].
+  /// The message is [message] (from the annotation), else the first of
+  /// these in `@Dto(messages:)`: the full dotted path like Laravel
+  /// (`address.city.required`), the same with `*` for list indexes
+  /// (`tags.*.required`), the last key (`city.required`), the code
+  /// (`required`). Else the [MessageResolver] with [fallback].
   void fail(
     List<Object> path,
     Object key,
@@ -73,8 +75,19 @@ class DtoState extends ParseState {
   }) {
     List<Object> full = <Object>[...path, key];
     String? text = message;
-    if (text == null && messages.isNotEmpty) {
-      text = messages['${ParseState.fieldName(full)}.$code'] ?? messages[code];
+    if (text == null && (messages.isNotEmpty || _outer.isNotEmpty)) {
+      // keys are relative to the DTO that owns the messages
+      text = _find(messages, full, _baseOf(path).length, code);
+      // the messages of an outer DTO, like Laravel: the root DTO can
+      // name `address.city.required` for a field of a nested DTO
+      for (int i = 0; text == null && i < _outer.length; i++) {
+        (List<Object>, Map<String, String>) outer = _outer[i];
+        if (_startsWith(full, outer.$1)) {
+          text = _find(outer.$2, full, outer.$1.length, code);
+        }
+      }
+      text ??=
+          messages['${ParseState.fieldName(full)}.$code'] ?? messages[code];
     }
     addIssue(
       path: full,
@@ -84,6 +97,57 @@ class DtoState extends ParseState {
       params: params,
       message: text,
     );
+  }
+
+  /// The path of each nested DTO in this check. Filled by [object].
+  final List<List<Object>> _bases = <List<Object>>[];
+
+  /// The `@Dto(messages:)` of each DTO that holds a nested DTO, with the
+  /// path of that DTO. Filled by [object]. A map is used only for a field
+  /// under its path, and its keys are relative to that path.
+  final List<(List<Object>, Map<String, String>)> _outer =
+      <(List<Object>, Map<String, String>)>[];
+
+  /// The path of the DTO that checks a field at [path]: the longest
+  /// nested DTO path that [path] starts with, else the root.
+  List<Object> _baseOf(List<Object> path) {
+    List<Object> base = const <Object>[];
+    for (List<Object> one in _bases) {
+      if (one.length > base.length && _startsWith(path, one)) base = one;
+    }
+    return base;
+  }
+
+  static bool _startsWith(List<Object> path, List<Object> prefix) {
+    if (prefix.length > path.length) return false;
+    for (int i = 0; i < prefix.length; i++) {
+      if (path[i] != prefix[i]) return false;
+    }
+    return true;
+  }
+
+  /// The message for [full] in [messages], by the path after the first
+  /// [skip] parts: as it is, then with `*` for list indexes.
+  static String? _find(
+    Map<String, String> messages,
+    List<Object> full,
+    int skip,
+    String code,
+  ) {
+    if (messages.isEmpty) return null;
+    List<Object> rest = full.sublist(skip);
+    return messages['${rest.join('.')}.$code'] ??
+        messages['${_wildcard(rest)}.$code'];
+  }
+
+  /// [path] as dotted text with `*` for each list index.
+  static String _wildcard(List<Object> path) {
+    StringBuffer out = StringBuffer();
+    for (Object part in path) {
+      if (out.isNotEmpty) out.write('.');
+      out.write(part is int ? '*' : part);
+    }
+    return out.toString();
   }
 
   /// Add the `required` issue at `[...path, key]`.
@@ -460,7 +524,21 @@ class DtoState extends ParseState {
     Object key,
     Map<String, String> m,
   ) {
-    if (raw == null || raw is Undefined || raw is Map) return raw;
+    if (raw is Map) {
+      // the nested DTO may need the outer messages (see [fail])
+      if (m.isNotEmpty) {
+        List<Object> base = _baseOf(path);
+        // the items of a list share one entry
+        if (_outer.isEmpty ||
+            !identical(_outer.last.$1, base) ||
+            !identical(_outer.last.$2, m)) {
+          _outer.add((base, m));
+        }
+      }
+      _bases.add(<Object>[...path, key]);
+      return raw;
+    }
+    if (raw == null || raw is Undefined) return raw;
     if (raw is String && raw.isEmpty) return undefined;
     return _typeError(
       path,

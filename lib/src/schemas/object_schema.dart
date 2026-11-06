@@ -2,6 +2,7 @@ import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../core/converted_values.dart';
 import '../core/fluent_schema.dart';
+import '../core/issue.dart';
 import '../core/message_resolver.dart';
 import '../core/parse_state.dart';
 import '../core/schema.dart';
@@ -126,7 +127,8 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       return invalid;
     }
     Map<String, dynamic> output = <String, dynamic>{};
-    ConvertedValues.track(state, path, output);
+    int before = state.issues.length;
+    if (_reordered) ConvertedValues.track(state, path, output);
     for (MapEntry<String, Schema<Object?>> entry in _checkOrder) {
       Object? value = entry.value.parseValue(
         _read(input, entry.key),
@@ -135,7 +137,7 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       );
       _put(output, entry.key, value);
     }
-    if (_reordered) output = _inShapeOrder(output);
+    if (_reordered) output = _inShapeOrder(output, state, path, before);
     _unknown(input, output, state, path);
     return output;
   }
@@ -151,7 +153,8 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       return invalid;
     }
     Map<String, dynamic> output = <String, dynamic>{};
-    ConvertedValues.track(state, path, output);
+    int before = state.issues.length;
+    if (_reordered) ConvertedValues.track(state, path, output);
     for (MapEntry<String, Schema<Object?>> entry in _checkOrder) {
       Object? value = await entry.value.parseValueAsync(
         _read(input, entry.key),
@@ -160,7 +163,7 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       );
       _put(output, entry.key, value);
     }
-    if (_reordered) output = _inShapeOrder(output);
+    if (_reordered) output = _inShapeOrder(output, state, path, before);
     _unknown(input, output, state, path);
     return output;
   }
@@ -170,13 +173,14 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
   late final List<MapEntry<String, Schema<Object?>>> _checkOrder =
       _inCheckOrder();
 
-  /// `true` when [_checkOrder] is not the order of [shape].
-  late final bool _reordered = _isReordered();
+  /// `true` when the shape has a `requiredIf` / `requiredWith` field.
+  /// Only then the converted values are kept and the fields reordered,
+  /// so a plain object pays nothing.
+  late final bool _reordered = _hasRuleField();
 
-  bool _isReordered() {
-    int i = 0;
-    for (String key in shape.keys) {
-      if (_checkOrder[i++].key != key) return true;
+  bool _hasRuleField() {
+    for (Schema<Object?> child in shape.values) {
+      if (_hasRequiredWhen(child)) return true;
     }
     return false;
   }
@@ -210,11 +214,37 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
     }
   }
 
-  /// [output] with its keys in the order of [shape].
-  Map<String, dynamic> _inShapeOrder(Map<String, dynamic> output) {
+  /// [output] with its keys in the order of [shape]. The issues added
+  /// since [before] are put in the order of [shape] too, so the order of
+  /// the checks does not show.
+  Map<String, dynamic> _inShapeOrder(
+    Map<String, dynamic> output,
+    ParseState state,
+    List<Object> path,
+    int before,
+  ) {
     Map<String, dynamic> sorted = <String, dynamic>{};
     for (String key in shape.keys) {
       if (output.containsKey(key)) sorted[key] = output[key];
+    }
+    List<ValidationIssue> issues = state.issues;
+    if (issues.length - before > 1) {
+      Map<Object?, List<ValidationIssue>> byKey =
+          <Object?, List<ValidationIssue>>{};
+      for (ValidationIssue issue in issues.sublist(before)) {
+        Object? key = issue.path.length > path.length
+            ? issue.path[path.length]
+            : null;
+        (byKey[key] ??= <ValidationIssue>[]).add(issue);
+      }
+      issues.length = before;
+      for (String key in shape.keys) {
+        issues.addAll(byKey.remove(key) ?? const <ValidationIssue>[]);
+      }
+      // an issue at some other path (from a custom rule) stays at the end
+      for (List<ValidationIssue> rest in byKey.values) {
+        issues.addAll(rest);
+      }
     }
     return sorted;
   }
