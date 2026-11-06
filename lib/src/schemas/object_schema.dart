@@ -1,5 +1,6 @@
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
+import '../core/converted_values.dart';
 import '../core/fluent_schema.dart';
 import '../core/message_resolver.dart';
 import '../core/parse_state.dart';
@@ -125,7 +126,8 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       return invalid;
     }
     Map<String, dynamic> output = <String, dynamic>{};
-    for (MapEntry<String, Schema<Object?>> entry in shape.entries) {
+    ConvertedValues.track(state, path, output);
+    for (MapEntry<String, Schema<Object?>> entry in _checkOrder) {
       Object? value = entry.value.parseValue(
         _read(input, entry.key),
         state,
@@ -133,6 +135,7 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       );
       _put(output, entry.key, value);
     }
+    if (_reordered) output = _inShapeOrder(output);
     _unknown(input, output, state, path);
     return output;
   }
@@ -148,7 +151,8 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       return invalid;
     }
     Map<String, dynamic> output = <String, dynamic>{};
-    for (MapEntry<String, Schema<Object?>> entry in shape.entries) {
+    ConvertedValues.track(state, path, output);
+    for (MapEntry<String, Schema<Object?>> entry in _checkOrder) {
       Object? value = await entry.value.parseValueAsync(
         _read(input, entry.key),
         state,
@@ -156,8 +160,63 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
       );
       _put(output, entry.key, value);
     }
+    if (_reordered) output = _inShapeOrder(output);
     _unknown(input, output, state, path);
     return output;
+  }
+
+  /// The fields with a `requiredIf` / `requiredWith` rule come last, so
+  /// the rule sees the converted value of the other field.
+  late final List<MapEntry<String, Schema<Object?>>> _checkOrder =
+      _inCheckOrder();
+
+  /// `true` when [_checkOrder] is not the order of [shape].
+  late final bool _reordered = _isReordered();
+
+  bool _isReordered() {
+    int i = 0;
+    for (String key in shape.keys) {
+      if (_checkOrder[i++].key != key) return true;
+    }
+    return false;
+  }
+
+  List<MapEntry<String, Schema<Object?>>> _inCheckOrder() {
+    List<MapEntry<String, Schema<Object?>>> first =
+        <MapEntry<String, Schema<Object?>>>[];
+    List<MapEntry<String, Schema<Object?>>> last =
+        <MapEntry<String, Schema<Object?>>>[];
+    for (MapEntry<String, Schema<Object?>> entry in shape.entries) {
+      (_hasRequiredWhen(entry.value) ? last : first).add(entry);
+    }
+    return <MapEntry<String, Schema<Object?>>>[...first, ...last];
+  }
+
+  static bool _hasRequiredWhen(Schema<Object?> schema) {
+    Schema<Object?> current = schema;
+    while (true) {
+      if (current is OptionalSchema) {
+        if (current.requiredWhen.isNotEmpty) return true;
+        current = current.inner;
+      } else if (current is NullableSchema) {
+        current = current.inner;
+      } else if (current is DefaultSchema) {
+        current = current.inner;
+      } else if (current is TransformSchema) {
+        current = current.inner;
+      } else {
+        return false;
+      }
+    }
+  }
+
+  /// [output] with its keys in the order of [shape].
+  Map<String, dynamic> _inShapeOrder(Map<String, dynamic> output) {
+    Map<String, dynamic> sorted = <String, dynamic>{};
+    for (String key in shape.keys) {
+      if (output.containsKey(key)) sorted[key] = output[key];
+    }
+    return sorted;
   }
 
   Object? _read(Map<dynamic, dynamic> input, String key) {

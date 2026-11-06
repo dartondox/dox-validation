@@ -1,3 +1,4 @@
+import '../core/converted_values.dart';
 import '../core/data_path.dart';
 import '../core/fluent_schema.dart';
 import '../core/json_schema_tools.dart';
@@ -44,9 +45,15 @@ class OptionalSchema<O> extends BaseSchema<O?>
   bool _missingButRequired(Object? input, ParseState state, List<Object> path) {
     if (requiredWhen.isEmpty) return false;
     if (input is! Undefined && !RequiredWhen.isEmpty(input)) return false;
-    Object? parent = path.isEmpty
-        ? state.root
-        : DataPath.read(state.root, path.sublist(0, path.length - 1));
+    List<Object> parentPath = path.isEmpty
+        ? path
+        : path.sublist(0, path.length - 1);
+    // the other fields as the app gets them, not the raw input
+    Object? parent = ConvertedValues.parent(
+      state,
+      parentPath,
+      DataPath.read(state.root, parentPath),
+    );
     for (RequiredWhen rule in requiredWhen) {
       if (!rule.appliesTo(parent)) continue;
       RequiredWhenIssue issue = RequiredWhenIssue(rule);
