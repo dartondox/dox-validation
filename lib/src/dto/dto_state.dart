@@ -58,9 +58,11 @@ class DtoState extends ParseState {
 
   /// Add an issue at `[...path, key]`.
   ///
-  /// The message is [message] (from the annotation), else
-  /// `messages['key.code']`, else `messages['code']` (from `@Dto(messages:)`),
-  /// else the [MessageResolver] with [fallback].
+  /// The message is [message] (from the annotation), else the first of
+  /// these in `@Dto(messages:)`: the full dotted path like Laravel
+  /// (`address.city.required`), the same with `*` for list indexes
+  /// (`tags.*.required`), the last key (`city.required`), the code
+  /// (`required`). Else the [MessageResolver] with [fallback].
   void fail(
     List<Object> path,
     Object key,
@@ -73,8 +75,17 @@ class DtoState extends ParseState {
   }) {
     List<Object> full = <Object>[...path, key];
     String? text = message;
-    if (text == null && messages.isNotEmpty) {
-      text = messages['${ParseState.fieldName(full)}.$code'] ?? messages[code];
+    if (text == null && (messages.isNotEmpty || _outer.isNotEmpty)) {
+      String dotted = '${full.join('.')}.$code';
+      String wildcard = '${_wildcard(full)}.$code';
+      text = messages[dotted] ?? messages[wildcard];
+      // the messages of an outer DTO, like Laravel: the root DTO can
+      // name `address.city.required` for a field of a nested DTO
+      for (int i = 0; text == null && i < _outer.length; i++) {
+        text = _outer[i][dotted] ?? _outer[i][wildcard];
+      }
+      text ??=
+          messages['${ParseState.fieldName(full)}.$code'] ?? messages[code];
     }
     addIssue(
       path: full,
@@ -84,6 +95,21 @@ class DtoState extends ParseState {
       params: params,
       message: text,
     );
+  }
+
+  /// The `@Dto(messages:)` of the DTOs that hold a nested DTO. Filled by
+  /// [object]. Their keys are full paths, so an old one never matches a
+  /// wrong field.
+  final List<Map<String, String>> _outer = <Map<String, String>>[];
+
+  /// [path] as dotted text with `*` for each list index.
+  static String _wildcard(List<Object> path) {
+    StringBuffer out = StringBuffer();
+    for (Object part in path) {
+      if (out.isNotEmpty) out.write('.');
+      out.write(part is int ? '*' : part);
+    }
+    return out.toString();
   }
 
   /// Add the `required` issue at `[...path, key]`.
@@ -460,7 +486,12 @@ class DtoState extends ParseState {
     Object key,
     Map<String, String> m,
   ) {
-    if (raw == null || raw is Undefined || raw is Map) return raw;
+    if (raw is Map) {
+      // the nested DTO may need these messages (see [fail])
+      if (m.isNotEmpty && !_outer.contains(m)) _outer.add(m);
+      return raw;
+    }
+    if (raw == null || raw is Undefined) return raw;
     if (raw is String && raw.isEmpty) return undefined;
     return _typeError(
       path,

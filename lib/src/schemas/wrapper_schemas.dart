@@ -178,20 +178,32 @@ class NullableSchema<O> extends BaseSchema<O?>
     return JsonSchemaTools.makeNullable(inner.toJsonSchema());
   }
 
-  /// `null` passes, unless the inner schema is `.optional()` with a
-  /// `requiredIf` / `requiredWith` rule that applies. Without this,
-  /// `.optional().requiredIf(...).nullable()` let `null` through.
+  /// `null` passes, unless an inner `.optional()` has a `requiredIf` /
+  /// `requiredWith` rule that applies. It looks through every wrapper,
+  /// so `.optional().requiredIf(...).transform(...).nullable()` and
+  /// `.nullable().nullable()` do not let `null` through.
   Object? _nullOrMissing(ParseState state, List<Object> path) {
-    Schema<O> inner = this.inner;
-    if (inner is OptionalSchema &&
-        (inner as OptionalSchema<Object?>)._missingButRequired(
+    Schema<Object?> current = inner;
+    while (true) {
+      if (current is OptionalSchema) {
+        if ((current as OptionalSchema<Object?>)._missingButRequired(
           null,
           state,
           path,
         )) {
-      return invalid;
+          return invalid;
+        }
+        current = current.inner;
+      } else if (current is NullableSchema) {
+        current = current.inner;
+      } else if (current is DefaultSchema) {
+        current = current.inner;
+      } else if (current is TransformSchema) {
+        current = current.inner;
+      } else {
+        return null;
+      }
     }
-    return null;
   }
 
   @override
