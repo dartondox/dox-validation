@@ -240,6 +240,40 @@ void main() {
       );
     });
 
+    test('requiredIf reads the converted value of the other key', () async {
+      // vat comes first: the order of the keys does not matter
+      ObjectSchema s = v.object(<String, Schema<Object?>>{
+        'vat': v.string().optional().requiredIf('type', 'company'),
+        'type': v.string().trim().toLowerCase(),
+      });
+      Map<String, dynamic> padded = <String, dynamic>{'type': ' Company '};
+      expect(only(s.safeParse(padded)).code, IssueCodes.requiredIf);
+      expect(only(await s.safeParseAsync(padded)).code, IssueCodes.requiredIf);
+      // the plain case still works
+      expect(
+        only(s.safeParse(<String, dynamic>{'type': 'company'})).code,
+        IssueCodes.requiredIf,
+      );
+      expect(s.safeParse(<String, dynamic>{'type': ' Person '}).success, true);
+      // the output keeps the order of the shape
+      expect(
+        s.parse(<String, dynamic>{'type': ' Company ', 'vat': 'V1'}).keys,
+        <String>['vat', 'type'],
+      );
+      // the other key fails its own check: the raw value is used
+      ObjectSchema n = v.object(<String, Schema<Object?>>{
+        'type': v.string().min(20),
+        'vat': v.string().optional().requiredIf('type', 'company'),
+      });
+      expect(
+        n
+            .safeParse(<String, dynamic>{'type': 'company'})
+            .issues
+            .map((ValidationIssue i) => i.code),
+        contains(IssueCodes.requiredIf),
+      );
+    });
+
     test('blank text counts as missing', () {
       expect(
         form.safeParse(<String, dynamic>{
@@ -905,6 +939,71 @@ void main() {
       );
       expect(s.issues, hasLength(3));
       expect(s.issues[2].dottedPath, 'tags');
+    });
+
+    test('DtoState.requiredWhen reads the converted other field', () {
+      // like the generated code: type is trimmed and lower case
+      DtoState s = DtoState(root: <String, dynamic>{});
+      Map<String, dynamic> input = <String, dynamic>{'type': ' Company '};
+      Object? type = s.string(
+        s.read(input, 'type'),
+        const <Object>[],
+        'type',
+        const <String, String>{},
+        trim: true,
+        textCase: 1,
+      );
+      expect(type, 'company');
+      s.requiredWhen(
+        const RequiredIf('type', 'company'),
+        undefined,
+        input,
+        const <Object>[],
+        'vat',
+        const <String, String>{},
+      );
+      expect(s.issues.single.code, IssueCodes.requiredIf);
+
+      // text input: 'yes' is true
+      DtoState t = DtoState(root: <String, dynamic>{}, text: true);
+      Map<String, dynamic> form = <String, dynamic>{'active': 'yes'};
+      t.boolean(
+        t.read(form, 'active'),
+        const <Object>[],
+        'active',
+        const <String, String>{},
+      );
+      t.requiredWhen(
+        const RequiredIf('active', true),
+        undefined,
+        form,
+        const <Object>[],
+        'reason',
+        const <String, String>{},
+      );
+      expect(t.issues.single.code, IssueCodes.requiredIf);
+
+      // the other field fails its own check: the raw value is used
+      DtoState u = DtoState(root: <String, dynamic>{});
+      Map<String, dynamic> bad = <String, dynamic>{'type': 5};
+      u.string(
+        u.read(bad, 'type'),
+        const <Object>[],
+        'type',
+        const <String, String>{},
+      );
+      u.requiredWhen(
+        const RequiredIf('type', 5),
+        undefined,
+        bad,
+        const <Object>[],
+        'vat',
+        const <String, String>{},
+      );
+      expect(u.issues.map((ValidationIssue i) => i.code), <String>[
+        IssueCodes.string,
+        IssueCodes.requiredIf,
+      ]);
     });
 
     test('rule classes are const, so they work as annotations', () {

@@ -7,6 +7,7 @@
   - `.optional().requiredIf('type', 'company')` / `@RequiredIf('type', 'company')`: required when another key has a value. An enum value matches its name. Missing means: not there, `null`, blank text or an empty list.
   - `.optional().requiredWith(['phone'])` / `@RequiredWith(['phone'])`: required when another key is present.
   - `.nullable()` after `requiredIf` or `requiredWith` keeps the check. Before, `null` passed even when the rule applied.
+  - `requiredIf` and `requiredWith` read the other key after its own conversion, like `trim()` and `toLowerCase()`. This is the value the app gets. Before, they read the raw input, so `type: ' Company '` did not make `vat` required, but the app got `type == 'company'`. When the other key fails its own check, the raw input is still used. In a fluent object, the keys with these rules are checked last, so the order of the keys does not matter. In a DTO, the other field must come before the field with the rule, because the generated code checks the fields in order.
   - `json()` / `@Json()`: the text must be valid JSON.
   - `digits(6)` / `@Digits(6)` and `digitsBetween(4, 6)` / `@DigitsBetween(4, 6)`: only digits, with this length.
   - `between(1, 10)` on `v.int()` and `v.num()`. DTOs already have `@Range(1, 10)`.

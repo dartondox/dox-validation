@@ -1,6 +1,7 @@
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../constants/patterns.dart';
+import '../core/converted_values.dart';
 import '../core/issue.dart';
 import '../core/message_resolver.dart';
 import '../core/parse_state.dart';
@@ -110,7 +111,9 @@ class DtoState extends ParseState {
     Map<String, String> messages,
   ) {
     if (value is! Undefined && !RequiredWhen.isEmpty(value)) return;
-    if (_hasIssue(path, key) || !rule.appliesTo(input)) return;
+    if (_hasIssue(path, key)) return;
+    // the other fields as the app gets them, not the raw input
+    if (!rule.appliesTo(ConvertedValues.parent(this, path, input))) return;
     RequiredWhenIssue issue = RequiredWhenIssue(rule);
     fail(
       path,
@@ -269,7 +272,7 @@ class DtoState extends ParseState {
       value = value.toUpperCase();
     }
     if (value.isEmpty && !allowEmpty) return undefined;
-    return value;
+    return _keep(path, key, value);
   }
 
   /// An `int`. JSON: a whole number (`18` or `18.0`). Text: `"18"`.
@@ -281,15 +284,15 @@ class DtoState extends ParseState {
   ) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
-    if (one is int) return one;
+    if (one is int) return _keep(path, key, one);
     if (one is double && one.isFinite && one == one.truncateToDouble()) {
-      return one.toInt();
+      return _keep(path, key, one.toInt());
     }
     if (one is String) {
       if (one.isEmpty) return undefined;
       if (text) {
         int? value = int.tryParse(one, radix: 10);
-        if (value != null) return value;
+        if (value != null) return _keep(path, key, value);
       }
     }
     return _typeError(
@@ -311,12 +314,12 @@ class DtoState extends ParseState {
   ) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
-    if (one is num && one.isFinite) return one.toDouble();
+    if (one is num && one.isFinite) return _keep(path, key, one.toDouble());
     if (one is String) {
       if (one.isEmpty) return undefined;
       if (text) {
         double? value = double.tryParse(one);
-        if (value != null && value.isFinite) return value;
+        if (value != null && value.isFinite) return _keep(path, key, value);
       }
     }
     return _typeError(
@@ -338,12 +341,12 @@ class DtoState extends ParseState {
   ) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
-    if (one is num && one.isFinite) return one;
+    if (one is num && one.isFinite) return _keep(path, key, one);
     if (one is String) {
       if (one.isEmpty) return undefined;
       if (text) {
         num? value = int.tryParse(one, radix: 10) ?? double.tryParse(one);
-        if (value != null && value.isFinite) return value;
+        if (value != null && value.isFinite) return _keep(path, key, value);
       }
     }
     return _typeError(
@@ -366,12 +369,12 @@ class DtoState extends ParseState {
   ) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
-    if (one is bool) return one;
+    if (one is bool) return _keep(path, key, one);
     if (one is String) {
       if (one.isEmpty) return undefined;
       if (text) {
-        if (ListText.isTrueWord(one)) return true;
-        if (ListText.isFalseWord(one)) return false;
+        if (ListText.isTrueWord(one)) return _keep(path, key, true);
+        if (ListText.isFalseWord(one)) return _keep(path, key, false);
       }
     }
     return _typeError(
@@ -397,7 +400,7 @@ class DtoState extends ParseState {
     if (one is String) {
       if (one.isEmpty) return undefined;
       DateTime? value = DtoChecks.parseDate(one);
-      if (value != null) return value;
+      if (value != null) return _keep(path, key, value);
     }
     return _typeError(path, key, IssueCodes.date, DefaultMessages.date, one, m);
   }
@@ -414,7 +417,7 @@ class DtoState extends ParseState {
     if (one == null || one is Undefined) return one;
     if (one is String) {
       if (one.isEmpty) return undefined;
-      if (names.contains(one)) return one;
+      if (names.contains(one)) return _keep(path, key, one);
     }
     fail(
       path,
@@ -480,6 +483,13 @@ class DtoState extends ParseState {
     if (one == null || one is Undefined || one is FileInput) return one;
     if (one is String && one.isEmpty) return undefined;
     return _typeError(path, key, IssueCodes.file, DefaultMessages.file, one, m);
+  }
+
+  /// Keep [value] as the converted value of [key], so `@RequiredIf` and
+  /// `@RequiredWith` on a later field see it. Gives [value] back.
+  Object? _keep(List<Object> path, Object key, Object? value) {
+    ConvertedValues.keep(this, path, key, value);
+    return value;
   }
 
   Invalid _typeError(
