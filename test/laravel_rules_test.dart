@@ -278,6 +278,31 @@ void main() {
       );
     });
 
+    test('.nullable() after requiredIf still checks null', () async {
+      ObjectSchema s = v.object(<String, Schema<Object?>>{
+        'type': v.string(),
+        'vat': v.string().optional().requiredIf('type', 'company').nullable(),
+        'tel': v.string().optional().requiredWith(<String>['fax']).nullable(),
+      });
+      Map<String, dynamic> company = <String, dynamic>{
+        'type': 'company',
+        'vat': null,
+      };
+      expect(only(s.safeParse(company)).code, IssueCodes.requiredIf);
+      expect(only(await s.safeParseAsync(company)).code, IssueCodes.requiredIf);
+      expect(
+        only(
+          s.safeParse(<String, dynamic>{'type': 'x', 'fax': '1', 'tel': null}),
+        ).code,
+        IssueCodes.requiredWith,
+      );
+      // null still passes when the rule does not apply
+      expect(
+        s.safeParse(<String, dynamic>{'type': 'person', 'vat': null}).success,
+        true,
+      );
+    });
+
     test('a list of values, text matches numbers and booleans', () {
       ObjectSchema s = v.object(<String, Schema<Object?>>{
         'kind': v.any(),
