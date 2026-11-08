@@ -1,5 +1,9 @@
 ## 3.1.0
 
+- Break: `IpRule` is no longer a `RegexRule`, so `IpRule().pattern` is gone.
+- `v.string().ip()` now accepts IPv6, like `@Ip`. Its JSON Schema is now `anyOf` `ipv4` and `ipv6` (was `format: ipv4`).
+- `email()` now accepts `+` and `'` before the `@` (like `ann+tag@x.com`), the same symbols as HTML5.
+- `alphaDash()` now allows digits (`post-123`), like Laravel `alpha_dash`. The message text changed too.
 - New Laravel-style rules. Each works in fluent schemas and as a DTO annotation, unless noted:
   - `same('other')` / `@Same('other')`: the value must equal another key in the same object.
   - `confirmed()` / `@Confirmed()`: `<field>_confirmation` must have the same value.
@@ -24,8 +28,8 @@
   - `v.file().dimensions(minWidth:, maxWidth:, minHeight:, maxHeight:, width:, height:, ratio:)` and `@Dimensions`. It reads only the image header of PNG, GIF, WebP and JPEG files. Other files, and broken or cut short headers, fail.
 - `ImageSize.read(head)` gives the width and height from the first bytes of an image. `FileTypes.matchesMimeTypes` and `FileTypes.extensionsOf` turn MIME types into checked file types.
 - `FileInput.head` may hold more than `FileTypes.headSize` bytes. A JPEG keeps its size after the photo metadata, so `dimensions` needs more bytes for it (see `ImageSize.jpegHeadSize`).
-- `@MinSize`, `@MimeTypes` and `@Dimensions` need dox_builder 3.0.3 or newer. An older dox_builder skips them without an error, so they check nothing.
-- `dimensions` on a JPEG needs dox_core 3.0.3 or newer. With an older dox_core, `RequestFile.head` has only 32 bytes, so every JPEG fails `dimensions`.
+- `@MinSize`, `@MimeTypes` and `@Dimensions` need dox_builder 3.1.0 or newer. An older dox_builder skips them without an error, so they check nothing.
+- `dimensions` on a JPEG needs dox_core 3.1.0 or newer. With an older dox_core, `RequestFile.head` has only 32 bytes, so every JPEG fails `dimensions`.
 
 - `ip()` and `@Ip` now reject IPv4 addresses with leading zeros, like `01.1.1.1`. Laravel does the same. Some tools read `010` as octal (8), so these addresses are not what they look like.
 
