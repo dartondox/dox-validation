@@ -1,4 +1,4 @@
-## Unreleased
+## 3.1.0
 
 - New Laravel-style rules. Each works in fluent schemas and as a DTO annotation, unless noted:
   - `same('other')` / `@Same('other')`: the value must equal another key in the same object.
