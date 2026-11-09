@@ -192,6 +192,24 @@ class AlphaDash {
 }
 
 // ---------------------------------------------------------------------------
+// Docs
+// ---------------------------------------------------------------------------
+
+/// A short text about the field. It goes into the JSON Schema as
+/// `description`, so OpenAPI docs and MCP tools show it. It does not
+/// change the checks.
+///
+/// ```dart
+/// @Describe('Category ID (see list_categories).')
+/// final int id;
+/// ```
+class Describe {
+  const Describe(this.text);
+
+  final String text;
+}
+
+// ---------------------------------------------------------------------------
 // Change text
 // ---------------------------------------------------------------------------
 
