@@ -37,6 +37,14 @@ abstract class DtoSchema<T> extends Schema<T> {
     return false;
   }
 
+  /// `false` when this DTO and its nested DTOs have no `@RequiredIf` or
+  /// `@RequiredWith`. Then a check does not keep the converted values,
+  /// which saves work. `dox_builder` sets it. The default `true` is safe,
+  /// so code from an older `dox_builder` still works.
+  bool get usesRequiredWhen {
+    return true;
+  }
+
   @override
   List<Rule<T>> get rules {
     return const <Never>[];
@@ -126,7 +134,11 @@ abstract class DtoSchema<T> extends Schema<T> {
 
   /// Run the four steps on [input] with [state]. Each step runs only
   /// when the step before it had no errors.
+  ///
+  /// When [usesRequiredWhen] is `false`, it sets [DtoState.keepValues] of
+  /// [state] to `false`.
   Future<ParseResult<T>> run(Object? input, DtoState state) async {
+    if (!usesRequiredWhen) state.keepValues = false;
     T? value = convert(input, state, const <Object>[]);
     if (state.issues.isEmpty && hasChecks) {
       await crossCheck(value as T, state, const <Object>[]);
@@ -147,9 +159,19 @@ abstract class DtoSchema<T> extends Schema<T> {
     return toJsonSchema();
   }
 
+  /// [state] as a [DtoState]. A DTO with `@RequiredIf` or `@RequiredWith`
+  /// turns on [DtoState.keepValues], also in a state it shares.
+  DtoState _stateOf(ParseState state) {
+    if (state is! DtoState) {
+      return DtoState.of(state, keepValues: usesRequiredWhen);
+    }
+    if (usesRequiredWhen) state.keepValues = true;
+    return state;
+  }
+
   @override
   Object? parseType(Object? input, ParseState state, List<Object> path) {
-    DtoState dto = state is DtoState ? state : DtoState.of(state);
+    DtoState dto = _stateOf(state);
     int before = dto.issues.length;
     T? value = convert(input, dto, path);
     if (dto.issues.length != before) return invalid;
@@ -171,7 +193,7 @@ abstract class DtoSchema<T> extends Schema<T> {
     ParseState state,
     List<Object> path,
   ) async {
-    DtoState dto = state is DtoState ? state : DtoState.of(state);
+    DtoState dto = _stateOf(state);
     int before = dto.issues.length;
     T? value = convert(input, dto, path);
     if (dto.issues.length != before) return invalid;
