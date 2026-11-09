@@ -219,9 +219,9 @@ class AllowEmpty {
 /// For query strings that old links may get wrong, like `?page=abc`.
 ///
 /// Type errors and the rules of this field both count, so
-/// `@OrDefault() @NotIn(<int>[0]) final int days = 30` turns `days=0`
-/// and `days=abc` into `30`. The field needs a default or must be
-/// nullable.
+/// `@OrDefault() @NotIn(<int>[0]) final int days;` with `this.days = 30`
+/// in the constructor turns `days=0` and `days=abc` into `30`. The field
+/// needs a default in the constructor or must be nullable.
 class OrDefault {
   const OrDefault();
 }
