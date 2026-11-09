@@ -70,6 +70,7 @@ class IssueCodes {
   static const String unique = 'unique';
   static const String digits = 'digits';
   static const String digitsBetween = 'digits_between';
+  static const String hexColor = 'hex_color';
   static const String dateFormat = 'date_format';
   static const String password = 'password';
 }

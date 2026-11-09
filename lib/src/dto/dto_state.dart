@@ -291,10 +291,24 @@ class DtoState extends ParseState {
   // Reading input
   // -------------------------------------------------------------------------
 
+  /// For `@OrDefault`: drop the issues added after the first [count].
+  /// Gives `true` when there were some, so the field takes its default.
+  bool dropIssuesAfter(int count) {
+    if (issues.length <= count) return false;
+    issues.removeRange(count, issues.length);
+    return true;
+  }
+
   /// `map[key]`, or [undefined] when the key is missing.
-  Object? read(Map<dynamic, dynamic> map, String key) {
+  /// [emptyToNull] (`@Dto(emptyStringsToNull: true)`): `""` gives `null`.
+  Object? read(
+    Map<dynamic, dynamic> map,
+    String key, {
+    bool emptyToNull = false,
+  }) {
     Object? value = map[key];
     if (value == null && !map.containsKey(key)) return undefined;
+    if (emptyToNull && value == '') return null;
     return value;
   }
 

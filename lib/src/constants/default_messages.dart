@@ -91,5 +91,6 @@ class DefaultMessages {
   static const String digitsBetween =
       'The {field} must be between {min} and {max} digits';
   static const String dateFormat = 'The {field} must match the format {format}';
+  static const String hexColor = 'The {field} must be a hex color like #1a2b3c';
   static const String password = 'The {field} must have {rules}';
 }
