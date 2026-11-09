@@ -1,6 +1,7 @@
 ## Unreleased
 
 - Docs: the dartdoc of `@OrDefault` says that errors from `@Unique`, `@Exists` and `validate()` are not dropped.
+- New: `@Describe('...')` on a DTO field. It sets `description` in the JSON Schema of the field. It does not change the checks. Needs a dox_builder that knows it.
 
 ## 3.1.1
 
