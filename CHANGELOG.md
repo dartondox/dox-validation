@@ -1,3 +1,7 @@
+## Unreleased
+
+- Docs: the dartdoc of `@OrDefault` says that errors from `@Unique`, `@Exists` and `validate()` are not dropped.
+
 ## 3.1.1
 
 - New: `@Dto(emptyStringsToNull: true)` reads `""` as `null`, like Laravel's `ConvertEmptyStringsToNull`. So `{"note": ""}` clears a `Maybe<String?>` field instead of counting as missing. Needs a dox_builder that knows it.
