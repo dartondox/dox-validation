@@ -222,6 +222,9 @@ class AllowEmpty {
 /// `@OrDefault() @NotIn(<int>[0]) final int days;` with `this.days = 30`
 /// in the constructor turns `days=0` and `days=abc` into `30`. The field
 /// needs a default in the constructor or must be nullable.
+///
+/// Errors from `@Unique`, `@Exists` and `validate()` are not dropped.
+/// They run later, so they still fail the request.
 class OrDefault {
   const OrDefault();
 }
