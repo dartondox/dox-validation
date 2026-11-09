@@ -164,6 +164,45 @@ class Digits extends Rule<String> {
   }
 }
 
+final RegExp _hexColor = RegExp(r'^#[0-9a-fA-F]{6}$');
+final RegExp _hexColorShort = RegExp(r'^#[0-9a-fA-F]{3}$');
+
+/// The text must be a hex color: `#` and 6 hex digits, like `#1a2b3c`.
+/// Both cases pass. `@HexColor(short: true)` also takes 3 digits (`#abc`).
+/// Laravel `hex_color` takes 3, 4, 6 or 8 digits; this rule is stricter
+/// on purpose, because most apps store `#rrggbb`.
+class HexColor extends Rule<String> {
+  const HexColor({this.short = false, super.message});
+
+  /// `true`: `#abc` passes too.
+  final bool short;
+
+  @override
+  String get name {
+    return IssueCodes.hexColor;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.hexColor;
+  }
+
+  @override
+  bool check(String value, RuleContext context) {
+    return _hexColor.hasMatch(value) ||
+        (short && _hexColorShort.hasMatch(value));
+  }
+
+  @override
+  Map<String, dynamic> toJsonSchema() {
+    return <String, dynamic>{
+      'pattern': short
+          ? r'^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$'
+          : r'^#[0-9a-fA-F]{6}$',
+    };
+  }
+}
+
 /// The text must be only digits (0-9), from [min] to [max] of them:
 /// `@DigitsBetween(4, 6)`. Laravel `digits_between`.
 class DigitsBetween extends Rule<String> {

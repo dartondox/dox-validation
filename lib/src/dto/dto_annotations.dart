@@ -41,6 +41,7 @@ class Dto {
     this.keyCase = KeyCase.snake,
     this.strict = false,
     this.messages = const <String, String>{},
+    this.emptyStringsToNull = false,
   });
 
   /// Where to read the input. See [Source].
@@ -54,6 +55,15 @@ class Dto {
 
   /// Messages by `code` or by `key.code`, like `email.required`.
   final Map<String, String> messages;
+
+  /// `true`: a key with `""` is read as `null`, like Laravel's
+  /// `ConvertEmptyStringsToNull`. So `{"note": ""}` clears a
+  /// `Maybe<String?>` field (present, `null`) instead of leaving it out.
+  /// A required field still gets `required`.
+  ///
+  /// `false` (the default): `""` counts as missing.
+  /// It works on the keys of this DTO, not on a nested DTO or list items.
+  final bool emptyStringsToNull;
 }
 
 /// The input key of this field. Default: the field name in snake_case.
@@ -203,6 +213,17 @@ class Uppercase {
 /// Keep `""` as a value. Without it, `""` counts as missing.
 class AllowEmpty {
   const AllowEmpty();
+}
+
+/// A bad value gives the default of the field (or `null`), not an error.
+/// For query strings that old links may get wrong, like `?page=abc`.
+///
+/// Type errors and the rules of this field both count, so
+/// `@OrDefault() @NotIn(<int>[0]) final int days;` with `this.days = 30`
+/// in the constructor turns `days=0` and `days=abc` into `30`. The field
+/// needs a default in the constructor or must be nullable.
+class OrDefault {
+  const OrDefault();
 }
 
 // ---------------------------------------------------------------------------

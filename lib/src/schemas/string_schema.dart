@@ -148,6 +148,12 @@ class StringSchema extends BaseSchema<String>
     return use(DigitsBetween(min, max, message: message));
   }
 
+  /// A hex color like `#1a2b3c`. [short] also takes `#abc`.
+  /// See [HexColor].
+  StringSchema hexColor({bool short = false, String? message}) {
+    return use(HexColor(short: short, message: message));
+  }
+
   /// A real date in [format], like `'Y-m-d'`. Laravel `date_format`.
   /// See [DateFormatted] for the format letters.
   /// A letter that is not supported throws an [ArgumentError] here.
