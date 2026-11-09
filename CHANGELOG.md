@@ -1,3 +1,8 @@
+## Unreleased
+
+- Faster: a DTO with no `@RequiredIf` or `@RequiredWith` (and no nested DTO with them) no longer keeps each converted value. Needs a dox_builder that knows it. Code from an older dox_builder works as before.
+- New: `DtoSchema.usesRequiredWhen` and `DtoState.keepValues`, used by the generated code. `DtoState(keepValues: true)` is the default, so nothing changes for code that makes a `DtoState`.
+
 ## 3.1.2
 
 - Docs: the dartdoc of `@OrDefault` says that errors from `@Unique`, `@Exists` and `validate()` are not dropped.
@@ -30,9 +35,9 @@
   - `dateFormat('Y-m-d')` / `@DateFormatted('Y-m-d')`: a real date in this format. It knows the PHP `date()` letters, like `M`, `D`, `A` and `U`. Another letter throws an `ArgumentError`; put `\` before it to use it as text. Like Laravel, `j`, `n`, `g`, `G`, `z` and `U` take no leading zero.
   - `password(min: 8, letters: true, mixedCase: true, numbers: true, symbols: true)` / `@Password(...)`: a strong password. It does not check leaked passwords.
   - `exists('teams')` and `unique('users', column: 'email')` on `v.string()`, `v.int()` and `v.num()`. They need `parseAsync`. `unique` needs `column:`; it never uses the input key. The database decides what matches, also for a list, so on MySQL `TAKEN@dox.dev` is taken when `taken@dox.dev` is there. A DTO `List` field (and `failedItems` of the rules) is one query for the whole list: an `exists` item passes only when its exact text is found, and a `unique` item fails when a found row has its exact text. When a found row matches no item by its text (MySQL ignores case and trailing spaces), one query can not tell which item it was, so every item fails (the safe side). `v.list(v.string().exists(...))` still checks each item alone, so the database decides for each one. Limit long lists with `.max(n)` / `@MaxItems`. They ask a `PresenceVerifier`, which `dox_orm` sets when the database starts. Table and column names are checked when the schema is built: the same plain names the dox_orm query builder takes, like `2fa_codes` or `public.users`. DTOs keep `@Exists` and `@Unique` from `dox_orm`.
-- `@RequiredIf` and `@RequiredWith` need a `dox_builder` that knows them.
+- `@RequiredIf` and `@RequiredWith` need `dox_builder` 3.1.0 or newer.
 - `RuleContext.sibling('key')` reads another key of the same object.
-- `@Dto(messages:)` matches the full dotted path first, like Laravel: `tags.*.required` for list items, and `address.city.required` in the outer DTO for a field of a nested DTO. Then the last key (`city.required`), then the code (`required`), as before.
+- `@Dto(messages:)` matches the dotted path first, like Laravel: `tags.*.required` for list items. The outer DTO can name `address.city.required` for a field of a nested DTO. A message in the nested DTO itself (`city.required`) wins over it. Then the last key (`city.required`), then the code (`required`), as before.
 - New file rules, like Laravel:
   - `v.file().maxSize(bytes)` and `minSize(bytes)`, and `@MinSize('10KB')`. Laravel counts KB; the fluent rules count bytes. The message shows a short size, like `2MB`.
   - `v.file().mimes([...])`, the same check as `@Mimes`.
@@ -42,7 +47,6 @@
 - `FileInput.head` may hold more than `FileTypes.headSize` bytes. A JPEG keeps its size after the photo metadata, so `dimensions` needs more bytes for it (see `ImageSize.jpegHeadSize`).
 - `@MinSize`, `@MimeTypes` and `@Dimensions` need dox_builder 3.1.0 or newer. An older dox_builder skips them without an error, so they check nothing.
 - `dimensions` on a JPEG needs dox_core 3.1.0 or newer. With an older dox_core, `RequestFile.head` has only 32 bytes, so every JPEG fails `dimensions`.
-
 - `ip()` and `@Ip` now reject IPv4 addresses with leading zeros, like `01.1.1.1`. Laravel does the same. Some tools read `010` as octal (8), so these addresses are not what they look like.
 
 ## 3.0.0

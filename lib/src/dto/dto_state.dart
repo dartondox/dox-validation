@@ -29,10 +29,11 @@ class DtoState extends ParseState {
     super.params,
     super.locale,
     this.text = false,
+    this.keepValues = true,
   });
 
   /// A state that adds its issues to [state] (a DTO inside a fluent schema).
-  DtoState.of(ParseState state, {this.text = false})
+  DtoState.of(ParseState state, {this.text = false, this.keepValues = true})
     : super(
         root: state.root,
         resolver: state.resolver,
@@ -43,6 +44,12 @@ class DtoState extends ParseState {
 
   /// `true` when the input is text (query string, form data).
   final bool text;
+
+  /// `true`: keep each converted value, so `@RequiredIf` and
+  /// `@RequiredWith` read the value the app gets. A DTO with none of these
+  /// rules does not need it, so [DtoSchema.run] sets it to `false` when
+  /// [DtoSchema.usesRequiredWhen] is `false`.
+  bool keepValues;
 
   DateTime? _now;
 
@@ -59,10 +66,16 @@ class DtoState extends ParseState {
   /// Add an issue at `[...path, key]`.
   ///
   /// The message is [message] (from the annotation), else the first of
-  /// these in `@Dto(messages:)`: the full dotted path like Laravel
-  /// (`address.city.required`), the same with `*` for list indexes
-  /// (`tags.*.required`), the last key (`city.required`), the code
-  /// (`required`). Else the [MessageResolver] with [fallback].
+  /// these in `@Dto(messages:)`:
+  /// - [messages] (the DTO that checks the field), by the dotted path
+  ///   from that DTO, like Laravel, then with `*` for list indexes
+  ///   (`tags.*.required`). In a nested DTO this is `city.required`.
+  /// - the messages of each outer DTO, by the path from it
+  ///   (`address.city.required` in the root DTO).
+  /// - [messages] by the last key (`city.required`), then by the code
+  ///   (`required`).
+  ///
+  /// Else the [MessageResolver] with [fallback].
   void fail(
     List<Object> path,
     Object key,
@@ -580,7 +593,7 @@ class DtoState extends ParseState {
   /// Keep [value] as the converted value of [key], so `@RequiredIf` and
   /// `@RequiredWith` on a later field see it. Gives [value] back.
   Object? _keep(List<Object> path, Object key, Object? value) {
-    ConvertedValues.keep(this, path, key, value);
+    if (keepValues) ConvertedValues.keep(this, path, key, value);
     return value;
   }
 
