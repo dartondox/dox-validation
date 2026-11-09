@@ -1,4 +1,4 @@
-## Unreleased
+## 3.1.1
 
 - New: `@Dto(emptyStringsToNull: true)` reads `""` as `null`, like Laravel's `ConvertEmptyStringsToNull`. So `{"note": ""}` clears a `Maybe<String?>` field instead of counting as missing. Needs a dox_builder that knows it.
 - New: `@OrDefault()` on a DTO field: a bad value (a type error or a failed rule) gives the default of the field, or `null`, not an error. For query strings like `?page=abc`. Needs a dox_builder that knows it.
