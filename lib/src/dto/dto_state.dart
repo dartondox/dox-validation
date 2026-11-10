@@ -47,8 +47,8 @@ class DtoState extends ParseState {
 
   /// `true`: keep each converted value, so `@RequiredIf` and
   /// `@RequiredWith` read the value the app gets. A DTO with none of these
-  /// rules does not need it, so [DtoSchema.run] sets it to `false` when
-  /// [DtoSchema.usesRequiredWhen] is `false`.
+  /// rules does not need it, so [DtoSchema.run] sets it to
+  /// [DtoSchema.usesRequiredWhen].
   bool keepValues;
 
   DateTime? _now;
