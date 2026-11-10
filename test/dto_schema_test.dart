@@ -210,6 +210,19 @@ void main() {
       expect(result.success, isTrue);
     });
 
+    test('run turns keepValues back on in a reused state', () async {
+      DtoState state = DtoState(root: <String, dynamic>{});
+      await const _CompanyDto(withRules: false)
+          .run(<String, dynamic>{'type': 'person'}, state);
+      expect(state.keepValues, isFalse);
+      ParseResult<Company> result = await const _CompanyDto().run(
+        <String, dynamic>{'type': ' Company '},
+        state,
+      );
+      expect(state.keepValues, isTrue);
+      expect(result.issues.single.code, IssueCodes.requiredIf);
+    });
+
     test('a DTO with the rules turns keepValues back on', () async {
       DtoState state = DtoState(root: <String, dynamic>{}, keepValues: false);
       Object? value = const _CompanyDto().parseType(

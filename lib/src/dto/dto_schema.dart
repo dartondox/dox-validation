@@ -135,10 +135,10 @@ abstract class DtoSchema<T> extends Schema<T> {
   /// Run the four steps on [input] with [state]. Each step runs only
   /// when the step before it had no errors.
   ///
-  /// When [usesRequiredWhen] is `false`, it sets [DtoState.keepValues] of
-  /// [state] to `false`.
+  /// It sets [DtoState.keepValues] of [state] to [usesRequiredWhen], so a
+  /// reused [state] is turned on again for a DTO that needs it.
   Future<ParseResult<T>> run(Object? input, DtoState state) async {
-    if (!usesRequiredWhen) state.keepValues = false;
+    state.keepValues = usesRequiredWhen;
     T? value = convert(input, state, const <Object>[]);
     if (state.issues.isEmpty && hasChecks) {
       await crossCheck(value as T, state, const <Object>[]);
