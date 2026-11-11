@@ -82,6 +82,26 @@ class RegexRule extends BuiltInRule<String> {
   }
 }
 
+/// Text must match [Patterns.alpha], [Patterns.alphaDash] or
+/// [Patterns.alphaNumeric], by [code]. It reads the pattern on each
+/// check, so it follows `Validator.flags`, also for a schema made before
+/// the flags were set.
+class AlphaRule extends RegexRule {
+  AlphaRule(String code, String defaultMessage, {super.message})
+    : super(_patternOf(code), code: code, defaultMessage: defaultMessage);
+
+  @override
+  bool check(String value, RuleContext context) {
+    return _patternOf(name).hasMatch(value);
+  }
+
+  static RegExp _patternOf(String code) {
+    if (code == IssueCodes.alpha) return Patterns.alpha;
+    if (code == IssueCodes.alphaDash) return Patterns.alphaDash;
+    return Patterns.alphaNumeric;
+  }
+}
+
 /// Text must be an email address.
 class EmailRule extends RegexRule {
   EmailRule({super.message})

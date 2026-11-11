@@ -1,5 +1,6 @@
 import 'core/message_resolver.dart';
 import 'core/schema.dart';
+import 'core/validation_flags.dart';
 import 'schemas/list_schema.dart';
 import 'schemas/map_schema.dart';
 import 'schemas/number_schemas.dart';
@@ -18,6 +19,12 @@ import 'schemas/union_schema.dart';
 /// ```
 class Validator {
   const Validator();
+
+  /// Opt-in behaviors. All off by default. See [ValidationFlags].
+  ///
+  /// Each isolate has its own static value. In a Dox app, set it in a
+  /// provider's `setup()`, so every isolate runs it.
+  static ValidationFlags flags = const ValidationFlags();
 
   /// Schemas that convert text input first. Good for query strings
   /// and form data.

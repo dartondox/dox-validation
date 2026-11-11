@@ -5,6 +5,7 @@ import '../constants/issue_codes.dart';
 import '../constants/schema_constants.dart';
 import '../schemas/wrapper_schemas.dart';
 import '../standard/standard_schema.dart';
+import '../validator.dart';
 import 'json_schema_tools.dart';
 import 'message_resolver.dart';
 import 'parse_result.dart';
@@ -73,8 +74,9 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
     if (isAsync) {
       throw StateError('Schema has async rules. Use parseAsync() instead.');
     }
-    ParseState state = ParseState(root: input, resolver: messages);
-    Object? output = parseValue(input, state, const <Object>[]);
+    Object? data = _prepare(input);
+    ParseState state = ParseState(root: data, resolver: messages);
+    Object? output = parseValue(data, state, const <Object>[]);
     return _result(output, state);
   }
 
@@ -92,8 +94,9 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
     Object? input, {
     MessageResolver? messages,
   }) async {
-    ParseState state = ParseState(root: input, resolver: messages);
-    Object? output = await parseValueAsync(input, state, const <Object>[]);
+    Object? data = _prepare(input);
+    ParseState state = ParseState(root: data, resolver: messages);
+    Object? output = await parseValueAsync(data, state, const <Object>[]);
     return _result(output, state);
   }
 
@@ -104,6 +107,38 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
       return safeParseAsync(value);
     }
     return safeParse(value);
+  }
+
+  /// The input for a fluent schema, with each `""` turned into `null`
+  /// when `ValidationFlags.emptyStringsToNull` is on. A DTO schema
+  /// checked on its own gets [input] as it is.
+  Object? _prepare(Object? input) {
+    if (!Validator.flags.emptyStringsToNull || this is! BaseSchema) {
+      return input;
+    }
+    return _emptyToNull(input);
+  }
+
+  static Object? _emptyToNull(Object? value) {
+    if (value is String) {
+      return value.isEmpty ? null : value;
+    }
+    if (value is Map<String, dynamic>) {
+      return <String, dynamic>{
+        for (MapEntry<String, dynamic> entry in value.entries)
+          entry.key: _emptyToNull(entry.value),
+      };
+    }
+    if (value is Map) {
+      return <Object?, Object?>{
+        for (MapEntry<Object?, Object?> entry in value.entries)
+          entry.key: _emptyToNull(entry.value),
+      };
+    }
+    if (value is List) {
+      return <Object?>[for (Object? item in value) _emptyToNull(item)];
+    }
+    return value;
   }
 
   ParseResult<O> _result(Object? output, ParseState state) {

@@ -1,6 +1,5 @@
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
-import '../constants/patterns.dart';
 import '../core/fluent_schema.dart';
 import '../core/parse_state.dart';
 import '../core/schema.dart';
@@ -99,22 +98,16 @@ class StringSchema extends BaseSchema<String>
   /// Only letters.
   StringSchema alpha({String? message}) {
     return use(
-      RegexRule(
-        Patterns.alpha,
-        code: IssueCodes.alpha,
-        defaultMessage: DefaultMessages.alpha,
-        message: message,
-      ),
+      AlphaRule(IssueCodes.alpha, DefaultMessages.alpha, message: message),
     );
   }
 
   /// Only letters, numbers, dash and underscore.
   StringSchema alphaDash({String? message}) {
     return use(
-      RegexRule(
-        Patterns.alphaDash,
-        code: IssueCodes.alphaDash,
-        defaultMessage: DefaultMessages.alphaDash,
+      AlphaRule(
+        IssueCodes.alphaDash,
+        DefaultMessages.alphaDash,
         message: message,
       ),
     );
@@ -123,10 +116,9 @@ class StringSchema extends BaseSchema<String>
   /// Only letters and numbers.
   StringSchema alphaNumeric({String? message}) {
     return use(
-      RegexRule(
-        Patterns.alphaNumeric,
-        code: IssueCodes.alphaNumeric,
-        defaultMessage: DefaultMessages.alphaNumeric,
+      AlphaRule(
+        IssueCodes.alphaNumeric,
+        DefaultMessages.alphaNumeric,
         message: message,
       ),
     );
