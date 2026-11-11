@@ -99,7 +99,8 @@ mixin FluentSchema<S extends BaseSchema<O>, O> on BaseSchema<O> {
   /// one issue. Laravel `bail`. It counts for the rules of this schema
   /// only, wherever it is in the chain. A wrapper like `.optional()`
   /// and the fields of an object or the items of a list keep their own
-  /// setting.
+  /// setting. So `.optional().bail()` does nothing for the rules inside
+  /// `.optional()`: call `.bail()` before the wrapper.
   S bail() {
     BaseSchema<O> next = copySchema();
     next.bails = true;

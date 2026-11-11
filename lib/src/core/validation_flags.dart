@@ -37,15 +37,18 @@ class ValidationFlags {
   /// field, and `.nullable()` gives `null` for it. A DTO schema checked
   /// on its own is not changed; it has `@Dto(emptyStringsToNull: true)`.
   /// A DTO inside a fluent schema gets the changed input.
+  // NEXT MAJOR: make this the default, then remove the flag.
   final bool emptyStringsToNull;
 
   /// `alpha`, `alphaNumeric` and `alphaDash` accept Unicode letters
   /// and marks, like `José` or `ไทย`. `alphaNumeric` and `alphaDash` also
   /// accept Unicode digits. Off: only `a-z` and `A-Z` (and `0-9`).
+  // NEXT MAJOR: make this the default, then remove the flag.
   final bool unicodeAlpha;
 
   /// The default `in` message is `The selected {field} is invalid`. It
   /// does not list the allowed values. Off: the message lists them.
+  // NEXT MAJOR: make this the default, then remove the flag.
   final bool shortInMessage;
 
   /// A DTO runs the rules of each field that has the right type, also
@@ -58,17 +61,20 @@ class ValidationFlags {
   /// rule errors. A field with a bad item in its list or map, or a list
   /// that fails `required`, skips its rules.
   /// Needs DTO code from a dox_builder that knows it.
+  // NEXT MAJOR: make this the default, then remove the flag.
   final bool dtoAllErrors;
 
   /// A required `List` field of a DTO fails `required` on `[]`.
   /// Off: `[]` passes.
   /// Needs DTO code from a dox_builder that knows it.
+  // NEXT MAJOR: make this the default, then remove the flag.
   final bool dtoRejectEmptyList;
 
   /// A `Maybe<T>` field of a DTO (with `T` not nullable) fails `required`
   /// when the key is sent with an empty value, like `""`. A missing key
   /// still gives `Maybe.missing()`. Off: `""` counts as not sent.
   /// Needs DTO code from a dox_builder that knows it.
+  // NEXT MAJOR: make this the default, then remove the flag.
   final bool dtoMaybeRejectsEmpty;
 
   /// A custom message key can use the Laravel rule name of a code, like
@@ -76,5 +82,6 @@ class ValidationFlags {
   /// works in `@Dto(messages:)` and in a `MessageResolver`. At each step
   /// of the lookup the Dox code wins. The issue code does not change.
   /// Off: only the Dox codes match.
+  // NEXT MAJOR: make this the default, then remove the flag.
   final bool laravelMessageKeys;
 }

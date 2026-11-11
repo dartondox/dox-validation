@@ -186,8 +186,10 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
   /// Leave the key out of the output, with no check, when the key
   /// [other] in the same object has [value] (or one of the values, when
   /// [value] is a list). Laravel `exclude_if`. When [other] is missing,
-  /// the key is not left out. It works on a field of `v.object()` only.
-  /// Anywhere else it does nothing.
+  /// the key is not left out. [other] is a key of the same object, not a
+  /// dotted path. It works on a field of `v.object()` only. Anywhere
+  /// else it does nothing. The cross-field rules of other fields, like
+  /// `same` or `requiredIf`, still read the raw value of a skipped field.
   ExcludeSchema<O> excludeIf(String other, Object? value) {
     return ExcludeSchema<O>(this, ExcludeIf(other, value));
   }
