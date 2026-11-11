@@ -688,6 +688,23 @@ class RequiredWhenIssue {
         const <String, Object?>{},
       );
     }
+    if (rule is ProhibitedIf) {
+      return RequiredWhenIssue._(
+        IssueCodes.prohibitedIf,
+        DefaultMessages.prohibitedIf,
+        <String, Object?>{
+          'other': rule.other,
+          'values': _names(rule.values).join(' or '),
+        },
+      );
+    }
+    if (rule is Prohibited) {
+      return RequiredWhenIssue._(
+        IssueCodes.prohibited,
+        DefaultMessages.prohibited,
+        const <String, Object?>{},
+      );
+    }
     if (rule is Present) {
       return RequiredWhenIssue._(
         IssueCodes.present,
@@ -774,72 +791,6 @@ class Declined<T> extends Rule<T> {
   @override
   bool check(T value, RuleContext context) {
     return _words.contains(value);
-  }
-}
-
-/// The field must be missing or empty: `@Prohibited()`.
-/// Laravel `prohibited`. Empty: `null`, blank text, an empty list or map.
-class Prohibited<T> extends Rule<T> {
-  const Prohibited({super.message});
-
-  @override
-  String get name {
-    return IssueCodes.prohibited;
-  }
-
-  @override
-  String get defaultMessage {
-    return DefaultMessages.prohibited;
-  }
-
-  @override
-  bool check(T value, RuleContext context) {
-    return RequiredWhen.isEmpty(value);
-  }
-}
-
-/// The field must be missing or empty when the key [other] has [value]:
-/// `@ProhibitedIf('type', 'guest')`. Laravel `prohibited_if`. [other] is
-/// read from the raw input and matches like in [RequiredIf].
-class ProhibitedIf<T> extends Rule<T> {
-  const ProhibitedIf(this.other, this.value, {super.message});
-
-  final String other;
-
-  /// One value, or a list of values (any of them).
-  final Object? value;
-
-  @override
-  String get name {
-    return IssueCodes.prohibitedIf;
-  }
-
-  @override
-  String get defaultMessage {
-    return DefaultMessages.prohibitedIf;
-  }
-
-  @override
-  Map<String, Object?> get params {
-    return <String, Object?>{
-      'other': other,
-      'values': RequiredWhenIssue._names(RequiredWhen.listOf(value))
-          .join(' or '),
-    };
-  }
-
-  @override
-  bool check(T value, RuleContext context) {
-    List<Object> path = context.path;
-    Object? parent = DataPath.read(
-      context.root,
-      path.isEmpty ? path : path.sublist(0, path.length - 1),
-    );
-    Object? raw = RequiredWhen.read(parent, other);
-    if (!RequiredWhen.matches(raw, RequiredWhen.listOf(this.value))) {
-      return true;
-    }
-    return RequiredWhen.isEmpty(value);
   }
 }
 

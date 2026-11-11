@@ -82,27 +82,17 @@ mixin FluentSchema<S extends BaseSchema<O>, O> on BaseSchema<O> {
   }
 
   /// Must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`. Laravel
-  /// `accepted`.
+  /// `accepted`. `v.bool()` takes only `true` and `false`: use
+  /// `v.coerce.bool().accepted()` for form words (any case), or
+  /// `v.string()` / `v.any()` to check the exact words.
   S accepted({String? message}) {
     return use(Accepted<O>(message: message));
   }
 
   /// Must be `false`, `0`, `'0'`, `'false'`, `'no'` or `'off'`. Laravel
-  /// `declined`.
+  /// `declined`. See [accepted] for the schema to use.
   S declined({String? message}) {
     return use(Declined<O>(message: message));
-  }
-
-  /// Must be missing or empty. Use it after `.optional()`. Laravel
-  /// `prohibited`.
-  S prohibited({String? message}) {
-    return use(Prohibited<O>(message: message));
-  }
-
-  /// Must be missing or empty when the key [other] in the same object
-  /// has [value]. Use it after `.optional()`. Laravel `prohibited_if`.
-  S prohibitedIf(String other, Object? value, {String? message}) {
-    return use(ProhibitedIf<O>(other, value, message: message));
   }
 
   /// Add a description for docs (JSON Schema `description`).

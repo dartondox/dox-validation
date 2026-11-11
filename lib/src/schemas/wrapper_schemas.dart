@@ -64,6 +64,21 @@ class OptionalSchema<O> extends BaseSchema<O?>
     return _addRequiredWhen(Present(message: message));
   }
 
+  /// The key must be missing, or blank text. Laravel `prohibited`.
+  OptionalSchema<O> prohibited({String? message}) {
+    return _addRequiredWhen(Prohibited(message: message));
+  }
+
+  /// Like [prohibited], when the key [other] in the same object has
+  /// [value]. Laravel `prohibited_if`.
+  OptionalSchema<O> prohibitedIf(
+    String other,
+    Object? value, {
+    String? message,
+  }) {
+    return _addRequiredWhen(ProhibitedIf(other, value, message: message));
+  }
+
   OptionalSchema<O> _addRequiredWhen(RequiredWhen rule) {
     return copyBaseInto(
       OptionalSchema<O>(
@@ -77,7 +92,7 @@ class OptionalSchema<O> extends BaseSchema<O?>
   /// [requiredWhen] rule applies.
   bool _missingButRequired(Object? input, ParseState state, List<Object> path) {
     if (requiredWhen.isEmpty) return false;
-    if (input is! Undefined && !RequiredWhen.isEmpty(input)) return false;
+    bool empty = input is Undefined || RequiredWhen.isEmpty(input);
     List<Object> parentPath = path.isEmpty
         ? path
         : path.sublist(0, path.length - 1);
@@ -86,6 +101,7 @@ class OptionalSchema<O> extends BaseSchema<O?>
     Object? parent = ConvertedValues.parent(state, parentPath, raw);
     Object key = path.isEmpty ? '' : path.last;
     for (RequiredWhen rule in requiredWhen) {
+      if (!empty && !rule.checksValues) continue;
       if (!rule.appliesToField(parent, raw, key)) continue;
       RequiredWhenIssue issue = RequiredWhenIssue(rule);
       state.addIssue(

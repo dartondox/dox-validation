@@ -171,6 +171,71 @@ void main() {
     });
   });
 
+  group('names for {other} and {others}', () {
+    test('no names: the keys, as before', () {
+      List<ValidationIssue> issues = _requiredWhen(
+        const RequiredWith(<String>['first_name', 'phone']),
+        <String, dynamic>{'first_name': 'x'},
+      );
+      expect(
+        issues.single.message,
+        'The field is required when first_name or phone is present',
+      );
+      expect(issues.single.params['others'], 'first_name or phone');
+    });
+
+    test('global and DTO names', () {
+      Map<String, dynamic> input = <String, dynamic>{'account_type': 'x'};
+      DtoState s = DtoState(
+        root: input,
+        resolver: MessageResolver(
+          attributes: <String, String>{'phone': 'phone number'},
+        ),
+      );
+      s.attributes(_top, const <String, String>{'account_type': 'account'});
+      s.requiredWhen(
+        const RequiredIf('account_type', 'x'),
+        undefined,
+        input,
+        _top,
+        'company',
+        _none,
+      );
+      s.requiredWhen(
+        const RequiredWith(<String>['account_type', 'phone']),
+        undefined,
+        input,
+        _top,
+        'vat',
+        _none,
+      );
+      expect(
+        <String>[for (ValidationIssue i in s.issues) i.message],
+        <String>[
+          'The company is required when account is x',
+          'The vat is required when account or phone number is present',
+        ],
+      );
+    });
+
+    test('fluent rules show the name of the other key', () {
+      ParseResult<Object?> result = v
+          .object(<String, Schema<Object?>>{
+            'old_password': v.string(),
+            'password': v.string().different('old_password'),
+          })
+          .safeParse(
+            <String, dynamic>{'old_password': 'a', 'password': 'a'},
+            messages: MessageResolver(
+              attributes: <String, String>{'old_password': 'old password'},
+            ),
+          );
+      expect(_messages(result), <String>[
+        'The password and old password must be different',
+      ]);
+    });
+  });
+
   group('Laravel names in the message lookup, flag off', () {
     test('name.min does not match a min_length error', () {
       MessageResolver messages = MessageResolver(
@@ -372,6 +437,17 @@ void main() {
       expect(issues.single.message, 'The field must be present');
     });
 
+    test('Present does not apply to list items', () {
+      ParseResult<Object?> result = v
+          .object(<String, Schema<Object?>>{
+            't': v.list(v.string().optional().present()),
+          })
+          .safeParse(<String, dynamic>{
+            't': <String>[''],
+          });
+      expect(_codes(result), isNot(contains('present')));
+    });
+
     test('fluent .optional() rules', () {
       ObjectSchema schema = v.object(<String, Schema<Object?>>{
         'email': v.string().optional().requiredWithout(<String>['phone']),
@@ -465,21 +541,74 @@ void main() {
       ]);
     });
 
-    test('prohibited and prohibitedIf', () {
-      Schema<Object?> field = v.any().optional().prohibited();
-      expect(run(field, 'x').issues.single.message, 'The a is prohibited');
-      expect(run(field, '  ').success, isTrue);
-      expect(run(field, <String>[]).success, isTrue);
-      expect(run(field, undefined).success, isTrue);
-      Schema<Object?> when = v.any().optional().prohibitedIf('type', 'guest');
-      expect(run(when, 'x').success, isTrue);
-      ParseResult<Object?> result = run(when, 'x', <String, dynamic>{
-        'type': 'guest',
+    test('prohibited: like Laravel 9.37', () {
+      ObjectSchema schema = v.object(<String, Schema<Object?>>{
+        'a': v.any().optional().prohibited(),
       });
-      expect(_codes(result), <String>['prohibited_if']);
-      expect(_messages(result), <String>[
-        'The a is prohibited when type is guest',
-      ]);
+      List<String> codes(Map<String, dynamic> input) {
+        return _codes(schema.safeParse(input));
+      }
+
+      // missing and blank text pass
+      expect(codes(<String, dynamic>{}), isEmpty);
+      expect(codes(<String, dynamic>{'a': ''}), isEmpty);
+      expect(codes(<String, dynamic>{'a': '  '}), isEmpty);
+      // every other sent value fails, also null and empty ones
+      for (Object? value in <Object?>[
+        null,
+        <String>[],
+        <String, dynamic>{},
+        0,
+        false,
+        'x',
+      ]) {
+        expect(codes(<String, dynamic>{'a': value}), <String>[
+          'prohibited',
+        ], reason: '$value');
+      }
+      expect(
+        schema.safeParse(<String, dynamic>{'a': 'x'}).issues.single.message,
+        'The a is prohibited',
+      );
+    });
+
+    test('prohibitedIf: only when the other key matches', () {
+      ObjectSchema schema = v.object(<String, Schema<Object?>>{
+        'type': v.string().optional(),
+        'a': v.any().optional().prohibitedIf('type', 'guest'),
+      });
+      expect(schema.safeParse(<String, dynamic>{'a': 'x'}).success, isTrue);
+      expect(
+        schema.safeParse(<String, dynamic>{'type': 'guest', 'a': '  '}).success,
+        isTrue,
+      );
+      for (Object? value in <Object?>[null, <String>[], 0, false, 'x']) {
+        ParseResult<Object?> result = schema.safeParse(<String, dynamic>{
+          'type': 'guest',
+          'a': value,
+        });
+        expect(_codes(result), <String>['prohibited_if'], reason: '$value');
+        expect(_messages(result), <String>[
+          'The a is prohibited when type is guest',
+        ]);
+      }
+    });
+
+    test('DTO: prohibited runs for sent values too', () {
+      Map<String, dynamic> input = <String, dynamic>{
+        'a': 5,
+        'b': null,
+        'c': '',
+      };
+      DtoState s = DtoState(root: input);
+      s.requiredWhen(const Prohibited(), 5, input, _top, 'a', _none);
+      s.requiredWhen(const Prohibited(), null, input, _top, 'b', _none);
+      s.requiredWhen(const Prohibited(), undefined, input, _top, 'c', _none);
+      s.requiredWhen(const Prohibited(), undefined, input, _top, 'd', _none);
+      expect(
+        <String>[for (ValidationIssue i in s.issues) i.dottedPath],
+        <String>['a', 'b'],
+      );
     });
 
     test('different', () {

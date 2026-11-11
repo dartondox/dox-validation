@@ -53,10 +53,11 @@ class ParseState {
     String? message,
   }) {
     Map<String, Object?> allParams = <String, Object?>{
-      'field': resolver.attributeName(path) ?? fieldName(path),
+      'field': attributeName(path) ?? fieldName(path),
       'value': value is Undefined ? null : value,
       ...params,
     };
+    _otherNames(allParams, path);
     if (Validator.flags.shortInMessage && fallback == DefaultMessages.inList) {
       fallback = DefaultMessages.inListShort;
     }
@@ -80,6 +81,32 @@ class ParseState {
         params: allParams,
       ),
     );
+  }
+
+  /// The name shown for the value at [path], or `null` to show the key.
+  /// See [MessageResolver.attributeName].
+  String? attributeName(List<Object> path) {
+    return resolver.attributeName(path);
+  }
+
+  /// `{other}` and `{others}` are keys next to [path]. Show their names,
+  /// like Laravel. With no names set, nothing changes.
+  void _otherNames(Map<String, Object?> params, List<Object> path) {
+    List<Object> parent = path.isEmpty
+        ? path
+        : path.sublist(0, path.length - 1);
+    Object? other = params['other'];
+    if (other is String) {
+      params['other'] = attributeName(<Object>[...parent, other]) ?? other;
+    }
+    Object? others = params['others'];
+    if (others is String) {
+      // ponytail: the keys come joined with ' or ' (RequiredWhenIssue)
+      params['others'] = <String>[
+        for (String key in others.split(' or '))
+          attributeName(<Object>[...parent, key]) ?? key,
+      ].join(' or ');
+    }
   }
 
   /// The name used for `{field}`: the last text key in the path.

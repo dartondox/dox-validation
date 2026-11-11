@@ -107,8 +107,6 @@ class DtoState extends ParseState {
           MessageResolver.find(messages, ParseState.fieldName(full), code) ??
           MessageResolver.find(messages, '', code);
     }
-    String? name = _attribute(full);
-    if (name != null) params = <String, Object?>{...params, 'field': name};
     addIssue(
       path: full,
       code: code,
@@ -158,6 +156,13 @@ class DtoState extends ParseState {
     List<Object> rest = full.sublist(skip);
     return MessageResolver.find(messages, rest.join('.'), code) ??
         MessageResolver.find(messages, _wildcard(rest), code);
+  }
+
+  /// The `@Dto(attributes:)` name of [path], else the name of the
+  /// [MessageResolver].
+  @override
+  String? attributeName(List<Object> path) {
+    return _attribute(path) ?? super.attributeName(path);
   }
 
   /// `@Dto(attributes:)` of each DTO in this check, by its path with `*`
@@ -218,7 +223,11 @@ class DtoState extends ParseState {
     Object key,
     Map<String, String> messages,
   ) {
-    if (value is! Undefined && !RequiredWhen.isEmpty(value)) return;
+    if (!rule.checksValues &&
+        value is! Undefined &&
+        !RequiredWhen.isEmpty(value)) {
+      return;
+    }
     if (_hasIssue(path, key)) return;
     // the other fields as the app gets them, not the raw input
     Object? parent = ConvertedValues.parent(this, path, input);

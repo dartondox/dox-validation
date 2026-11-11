@@ -483,6 +483,12 @@ abstract class RequiredWhen {
     return appliesTo(parent);
   }
 
+  /// `false`: the rule runs only when the value is missing or empty.
+  /// `true`: it runs for every value ([Prohibited], [ProhibitedIf]).
+  bool get checksValues {
+    return false;
+  }
+
   /// `true` when the raw [other] value matches one of [values]. Text and
   /// numbers match by text, so `'1'` matches `1`. An enum value matches
   /// its name.
@@ -646,7 +652,70 @@ class Present extends RequiredWhen {
 
   @override
   bool appliesToField(Object? parent, Object? raw, Object key) {
-    return raw is! Map || !raw.containsKey(key);
+    // a list item has no key to miss
+    return raw is Map && !raw.containsKey(key);
+  }
+}
+
+/// The key must be missing, or blank text: `@Prohibited()`.
+/// Laravel `prohibited` (checked against Laravel 9.37): a key with `null`,
+/// `[]`, `{}`, `0` or `false` fails, `""` and `"  "` pass. It reads the
+/// raw input, so it runs before the type check.
+class Prohibited extends RequiredWhen {
+  const Prohibited({super.message});
+
+  @override
+  bool get checksValues {
+    return true;
+  }
+
+  @override
+  bool appliesTo(Object? parent) {
+    return false;
+  }
+
+  @override
+  bool appliesToField(Object? parent, Object? raw, Object key) {
+    return sent(raw, key);
+  }
+
+  /// `true` when [key] is in [raw] with a value that is not blank text.
+  static bool sent(Object? raw, Object key) {
+    if (raw is! Map || !raw.containsKey(key)) return false;
+    Object? value = raw[key];
+    return !(value is String && value.trim().isEmpty);
+  }
+}
+
+/// Like [Prohibited], but only when the key [other] has [value]:
+/// `@ProhibitedIf('type', 'guest')`. Laravel `prohibited_if`. [other]
+/// matches like in [RequiredIf]. Give a list for many values.
+class ProhibitedIf extends RequiredWhen {
+  const ProhibitedIf(this.other, this.value, {super.message});
+
+  final String other;
+
+  /// One value, or a list of values (any of them).
+  final Object? value;
+
+  /// [value] as a list.
+  List<Object?> get values {
+    return RequiredWhen.listOf(value);
+  }
+
+  @override
+  bool get checksValues {
+    return true;
+  }
+
+  @override
+  bool appliesTo(Object? parent) {
+    return RequiredWhen.matches(RequiredWhen.read(parent, other), values);
+  }
+
+  @override
+  bool appliesToField(Object? parent, Object? raw, Object key) {
+    return appliesTo(parent) && Prohibited.sent(raw, key);
   }
 }
 
