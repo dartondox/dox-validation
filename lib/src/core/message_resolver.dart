@@ -1,5 +1,6 @@
 import '../constants/issue_codes.dart';
 import '../constants/schema_constants.dart';
+import '../validator.dart';
 import 'parse_state.dart';
 
 /// Everything a [MessageResolver] needs to build one message.
@@ -41,8 +42,9 @@ class MessageRequest {
 /// 3. `messages['code']`, like `required`
 /// 4. the default English template
 ///
-/// In steps 2 and 3 the Dox code is tried first, then its Laravel name
-/// (see [IssueCodes.laravel]): `name.min` also finds `min_length`.
+/// With `ValidationFlags.laravelMessageKeys`, steps 2 and 3 try the Dox
+/// code first, then its Laravel name (see [IssueCodes.laravel]):
+/// `name.min` also finds `min_length`.
 ///
 /// [attributes] are the names shown for `{field}`, by key, like Laravel's
 /// custom attributes: `{'first_name': 'first name'}`.
@@ -100,7 +102,8 @@ class MessageResolver {
   }
 
   /// [messages] at `prefix.code`, else at `prefix.<Laravel name>` (see
-  /// [IssueCodes.laravel]). An empty [prefix] looks up the code alone.
+  /// [IssueCodes.laravel]) when `ValidationFlags.laravelMessageKeys` is
+  /// on. An empty [prefix] looks up the code alone.
   static String? find(
     Map<String, String> messages,
     String prefix,
@@ -108,7 +111,7 @@ class MessageResolver {
   ) {
     String start = prefix.isEmpty ? '' : '$prefix.';
     String? text = messages['$start$code'];
-    if (text != null) return text;
+    if (text != null || !Validator.flags.laravelMessageKeys) return text;
     String? laravel = IssueCodes.laravel[code];
     return laravel == null ? null : messages['$start$laravel'];
   }

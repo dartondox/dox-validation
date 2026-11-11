@@ -171,7 +171,58 @@ void main() {
     });
   });
 
-  group('Laravel names in the message lookup', () {
+  group('Laravel names in the message lookup, flag off', () {
+    test('name.min does not match a min_length error', () {
+      MessageResolver messages = MessageResolver(
+        messages: <String, String>{'name.min': 'laravel', 'min': 'number'},
+      );
+      ParseResult<Object?> result = v
+          .object(<String, Schema<Object?>>{
+            'name': v.string().min(3),
+            'tags': v.list(v.string()).min(2),
+          })
+          .safeParse(<String, dynamic>{
+            'name': 'ab',
+            'tags': <String>['x'],
+          }, messages: messages);
+      expect(_codes(result), <String>['min_length', 'min_items']);
+      expect(_messages(result), <String>[
+        'The name must be at least 3 characters',
+        'The tags must have at least 2 items',
+      ]);
+    });
+
+    test('DTO messages match only the Dox code', () {
+      DtoState s = DtoState(root: null);
+      const Map<String, String> m = <String, String>{
+        'name.min': 'laravel',
+        'gt': 'laravel',
+        'age.greater_than': 'age dox',
+      };
+      s.fail(_top, 'name', IssueCodes.minLength, 'default', 'ab', messages: m);
+      s.fail(_top, 'price', IssueCodes.greaterThan, 'default', 0, messages: m);
+      s.fail(_top, 'age', IssueCodes.greaterThan, 'x', 0, messages: m);
+      expect(
+        <String>[for (ValidationIssue i in s.issues) i.message],
+        <String>['default', 'default', 'age dox'],
+      );
+    });
+  });
+
+  group('Laravel names in the message lookup, flag on', () {
+    setUp(() {
+      Validator.flags = const ValidationFlags(laravelMessageKeys: true);
+    });
+
+    tearDown(() {
+      Validator.flags = const ValidationFlags();
+    });
+
+    test('ValidationFlags.all() turns it on', () {
+      expect(const ValidationFlags.all().laravelMessageKeys, isTrue);
+      expect(const ValidationFlags().laravelMessageKeys, isFalse);
+    });
+
     test('the code does not change', () {
       ParseResult<Object?> result = v
           .object(<String, Schema<Object?>>{'name': v.string().min(3)})

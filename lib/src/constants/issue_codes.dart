@@ -87,7 +87,8 @@ class IssueCodes {
   static const String ulid = 'ulid';
 
   /// The Laravel rule name of each code that has another name in Dox.
-  /// Only the lookup of custom messages uses it: `name.min` finds a
+  /// Only the lookup of custom messages uses it, and only when
+  /// `ValidationFlags.laravelMessageKeys` is on: `name.min` finds a
   /// message for the `min_length` issue of `name`. The issue code stays
   /// `min_length`. A key with the Dox code wins over the Laravel name.
   static const Map<String, String> laravel = <String, String>{

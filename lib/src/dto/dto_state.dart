@@ -71,8 +71,9 @@ class DtoState extends ParseState {
   /// - [messages] (the DTO that checks the field), by the dotted path
   ///   from that DTO, like Laravel, then with `*` for list indexes
   ///   (`tags.*.required`). In a nested DTO this is `city.required`.
-  ///   At each step the Dox code is tried first, then its Laravel name
-  ///   (see [IssueCodes.laravel]), so `name.min` works too.
+  ///   With `ValidationFlags.laravelMessageKeys`, each step tries the Dox
+  ///   code first, then its Laravel name (see [IssueCodes.laravel]), so
+  ///   `name.min` works too.
   /// - the messages of each outer DTO, by the path from it
   ///   (`address.city.required` in the root DTO).
   /// - [messages] by the last key (`city.required`), then by the code
