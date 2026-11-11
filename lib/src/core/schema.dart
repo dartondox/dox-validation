@@ -3,6 +3,7 @@ import 'dart:async';
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../constants/schema_constants.dart';
+import '../dto/dto_annotations.dart';
 import '../schemas/wrapper_schemas.dart';
 import '../standard/standard_schema.dart';
 import '../validator.dart';
@@ -43,6 +44,12 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
 
   /// `true` when the value may be missing in an object.
   bool get isOptional {
+    return false;
+  }
+
+  /// `true` when the first failed rule stops the other [rules].
+  /// Set with `.bail()`.
+  bool get bails {
     return false;
   }
 
@@ -176,6 +183,24 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
     return DefaultSchema<O>(this, value);
   }
 
+  /// Leave the key out of the output, with no check, when the key
+  /// [other] in the same object has [value] (or one of the values, when
+  /// [value] is a list). Laravel `exclude_if`. When [other] is missing,
+  /// the key is not left out. [other] is a key of the same object, not a
+  /// dotted path. It works on a field of `v.object()` only. Anywhere
+  /// else it does nothing. The cross-field rules of other fields, like
+  /// `same` or `requiredIf`, still read the raw value of a skipped field.
+  ExcludeSchema<O> excludeIf(String other, Object? value) {
+    return ExcludeSchema<O>(this, ExcludeIf(other, value));
+  }
+
+  /// Leave the key out of the output, with no check, unless the key
+  /// [other] in the same object has [value]. Laravel `exclude_unless`.
+  /// A missing [other] counts as `null`. See [excludeIf].
+  ExcludeSchema<O> excludeUnless(String other, Object? value) {
+    return ExcludeSchema<O>(this, ExcludeUnless(other, value));
+  }
+
   /// Change the output after it passes validation.
   TransformSchema<O, T> transform<T>(T Function(O value) transformer) {
     return TransformSchema<O, T>(this, transformer);
@@ -255,7 +280,13 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
     }
     O typed = output as O;
     for (Rule<O> rule in rules) {
-      rule.apply(typed, RuleContext(state: state, path: path, value: typed));
+      if (!rule.apply(
+            typed,
+            RuleContext(state: state, path: path, value: typed),
+          ) &&
+          bails) {
+        break;
+      }
     }
     return typed;
   }
@@ -275,10 +306,13 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
     }
     O typed = output as O;
     for (Rule<O> rule in rules) {
-      await rule.applyAsync(
-        typed,
-        RuleContext(state: state, path: path, value: typed),
-      );
+      if (!await rule.applyAsync(
+            typed,
+            RuleContext(state: state, path: path, value: typed),
+          ) &&
+          bails) {
+        break;
+      }
     }
     return typed;
   }
@@ -326,6 +360,9 @@ abstract class BaseSchema<O> extends Schema<O> {
   @override
   final List<Object?> examples = <Object?>[];
 
+  @override
+  bool bails = false;
+
   /// Make a copy with the same settings. Used by the fluent methods.
   BaseSchema<O> copySchema();
 
@@ -334,6 +371,7 @@ abstract class BaseSchema<O> extends Schema<O> {
     target.rules.addAll(rules);
     target.description = description;
     target.examples.addAll(examples);
+    target.bails = bails;
     return target;
   }
 }
