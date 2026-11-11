@@ -89,6 +89,7 @@ class DtoState extends ParseState {
     Map<String, Object?> params = const <String, Object?>{},
     String? message,
     Map<String, String> messages = const <String, String>{},
+    List<String> others = const <String>[],
   }) {
     List<Object> full = <Object>[...path, key];
     String? text = message;
@@ -114,6 +115,7 @@ class DtoState extends ParseState {
       value: value,
       params: params,
       message: text,
+      others: others,
     );
   }
 
@@ -242,6 +244,7 @@ class DtoState extends ParseState {
       params: issue.params,
       message: rule.message,
       messages: messages,
+      others: issue.others,
     );
   }
 

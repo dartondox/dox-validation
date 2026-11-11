@@ -51,13 +51,14 @@ class ParseState {
     Object? value,
     Map<String, Object?> params = const <String, Object?>{},
     String? message,
+    List<String> others = const <String>[],
   }) {
     Map<String, Object?> allParams = <String, Object?>{
       'field': attributeName(path) ?? fieldName(path),
       'value': value is Undefined ? null : value,
       ...params,
     };
-    _otherNames(allParams, path);
+    _otherNames(allParams, path, others);
     if (Validator.flags.shortInMessage && fallback == DefaultMessages.inList) {
       fallback = DefaultMessages.inListShort;
     }
@@ -90,8 +91,13 @@ class ParseState {
   }
 
   /// `{other}` and `{others}` are keys next to [path]. Show their names,
-  /// like Laravel. With no names set, nothing changes.
-  void _otherNames(Map<String, Object?> params, List<Object> path) {
+  /// like Laravel. [others] are the keys of `{others}`. With no names set,
+  /// nothing changes.
+  void _otherNames(
+    Map<String, Object?> params,
+    List<Object> path,
+    List<String> others,
+  ) {
     List<Object> parent = path.isEmpty
         ? path
         : path.sublist(0, path.length - 1);
@@ -99,14 +105,18 @@ class ParseState {
     if (other is String) {
       params['other'] = attributeName(<Object>[...parent, other]) ?? other;
     }
-    Object? others = params['others'];
-    if (others is String) {
-      // ponytail: the keys come joined with ' or ' (RequiredWhenIssue)
-      params['others'] = <String>[
-        for (String key in others.split(' or '))
-          attributeName(<Object>[...parent, key]) ?? key,
-      ].join(' or ');
-    }
+    if (others.isEmpty) return;
+    List<String?> names = <String?>[
+      for (String key in others) attributeName(<Object>[...parent, key]),
+    ];
+    if (names.every(_isNull)) return;
+    params['others'] = <String>[
+      for (int i = 0; i < others.length; i++) names[i] ?? others[i],
+    ].join(' or ');
+  }
+
+  static bool _isNull(String? value) {
+    return value == null;
   }
 
   /// The name used for `{field}`: the last text key in the path.

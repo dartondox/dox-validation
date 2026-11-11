@@ -687,9 +687,10 @@ class Prohibited extends RequiredWhen {
   }
 }
 
-/// Like [Prohibited], but only when the key [other] has [value]:
-/// `@ProhibitedIf('type', 'guest')`. Laravel `prohibited_if`. [other]
-/// matches like in [RequiredIf]. Give a list for many values.
+/// When the key [other] has [value], the field must be missing or
+/// empty: `@ProhibitedIf('type', 'guest')`. Laravel `prohibited_if`.
+/// Empty: `null`, blank text, an empty list or map. `0` and `false` fail.
+/// [other] matches like in [RequiredIf]. Give a list for many values.
 class ProhibitedIf extends RequiredWhen {
   const ProhibitedIf(this.other, this.value, {super.message});
 
@@ -715,7 +716,9 @@ class ProhibitedIf extends RequiredWhen {
 
   @override
   bool appliesToField(Object? parent, Object? raw, Object key) {
-    return appliesTo(parent) && Prohibited.sent(raw, key);
+    // like Laravel `prohibited_if`: an empty value passes (null, blank
+    // text, an empty list or map), `0` and `false` fail
+    return appliesTo(parent) && raw is Map && !RequiredWhen.isEmpty(raw[key]);
   }
 }
 

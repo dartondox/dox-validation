@@ -184,6 +184,28 @@ void main() {
       expect(issues.single.params['others'], 'first_name or phone');
     });
 
+    test('a key with " or " in it keeps its own name', () {
+      Map<String, dynamic> input = <String, dynamic>{'this or that': 'x'};
+      DtoState s = DtoState(
+        root: input,
+        resolver: MessageResolver(
+          attributes: <String, String>{'this or that': 'choice'},
+        ),
+      );
+      s.requiredWhen(
+        const RequiredWith(<String>['this or that']),
+        undefined,
+        input,
+        _top,
+        'vat',
+        _none,
+      );
+      expect(
+        s.issues.single.message,
+        'The vat is required when choice is present',
+      );
+    });
+
     test('global and DTO names', () {
       Map<String, dynamic> input = <String, dynamic>{'account_type': 'x'};
       DtoState s = DtoState(
@@ -578,11 +600,24 @@ void main() {
         'a': v.any().optional().prohibitedIf('type', 'guest'),
       });
       expect(schema.safeParse(<String, dynamic>{'a': 'x'}).success, isTrue);
-      expect(
-        schema.safeParse(<String, dynamic>{'type': 'guest', 'a': '  '}).success,
-        isTrue,
-      );
-      for (Object? value in <Object?>[null, <String>[], 0, false, 'x']) {
+      // like Laravel: an empty value passes
+      for (Object? value in <Object?>[
+        null,
+        '',
+        '  ',
+        <String>[],
+        <String, dynamic>{},
+      ]) {
+        expect(
+          schema.safeParse(<String, dynamic>{
+            'type': 'guest',
+            'a': value,
+          }).success,
+          isTrue,
+          reason: '$value',
+        );
+      }
+      for (Object? value in <Object?>[0, false, 'x']) {
         ParseResult<Object?> result = schema.safeParse(<String, dynamic>{
           'type': 'guest',
           'a': value,
@@ -592,6 +627,31 @@ void main() {
           'The a is prohibited when type is guest',
         ]);
       }
+    });
+
+    test('DTO: prohibitedIf passes null and fails 0', () {
+      Map<String, dynamic> input = <String, dynamic>{
+        'type': 'guest',
+        'a': null,
+        'b': 0,
+        'c': <String>[],
+        'd': false,
+      };
+      DtoState s = DtoState(root: input);
+      for (String key in <String>['a', 'b', 'c', 'd']) {
+        s.requiredWhen(
+          const ProhibitedIf('type', 'guest'),
+          input[key],
+          input,
+          _top,
+          key,
+          _none,
+        );
+      }
+      expect(
+        <String>[for (ValidationIssue i in s.issues) i.dottedPath],
+        <String>['b', 'd'],
+      );
     });
 
     test('DTO: prohibited runs for sent values too', () {

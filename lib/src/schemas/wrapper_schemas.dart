@@ -93,6 +93,8 @@ class OptionalSchema<O> extends BaseSchema<O?>
   bool _missingButRequired(Object? input, ParseState state, List<Object> path) {
     if (requiredWhen.isEmpty) return false;
     bool empty = input is Undefined || RequiredWhen.isEmpty(input);
+    // a value: only rules like `prohibited` run, so skip the work
+    if (!empty && !requiredWhen.any(_checksValues)) return false;
     List<Object> parentPath = path.isEmpty
         ? path
         : path.sublist(0, path.length - 1);
@@ -111,10 +113,15 @@ class OptionalSchema<O> extends BaseSchema<O?>
         value: input,
         params: issue.params,
         message: rule.message,
+        others: issue.others,
       );
       return true;
     }
     return false;
+  }
+
+  static bool _checksValues(RequiredWhen rule) {
+    return rule.checksValues;
   }
 
   @override

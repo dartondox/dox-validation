@@ -655,6 +655,7 @@ class RequiredWhenIssue {
         IssueCodes.requiredWith,
         DefaultMessages.requiredWith,
         <String, Object?>{'others': rule.others.join(' or ')},
+        rule.others,
       );
     }
     if (rule is RequiredUnless) {
@@ -672,6 +673,7 @@ class RequiredWhenIssue {
         IssueCodes.requiredWithout,
         DefaultMessages.requiredWithout,
         <String, Object?>{'others': rule.others.join(' or ')},
+        rule.others,
       );
     }
     if (rule is RequiredWithoutAll) {
@@ -679,6 +681,7 @@ class RequiredWhenIssue {
         IssueCodes.requiredWithoutAll,
         DefaultMessages.requiredWithoutAll,
         <String, Object?>{'others': rule.others.join(' or ')},
+        rule.others,
       );
     }
     if (rule is Filled) {
@@ -719,7 +722,12 @@ class RequiredWhenIssue {
     );
   }
 
-  RequiredWhenIssue._(this.code, this.fallback, this.params);
+  RequiredWhenIssue._(
+    this.code,
+    this.fallback,
+    this.params, [
+    this.others = const <String>[],
+  ]);
 
   /// Each value as text: an enum value gives its name.
   static List<Object?> _names(List<Object?> values) {
@@ -731,6 +739,9 @@ class RequiredWhenIssue {
   final String code;
   final String fallback;
   final Map<String, Object?> params;
+
+  /// The keys in `{others}`, so each one can show its name.
+  final List<String> others;
 }
 
 /// The value must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`:
