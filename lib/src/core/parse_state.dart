@@ -51,12 +51,14 @@ class ParseState {
     Object? value,
     Map<String, Object?> params = const <String, Object?>{},
     String? message,
+    List<String> others = const <String>[],
   }) {
     Map<String, Object?> allParams = <String, Object?>{
-      'field': fieldName(path),
+      'field': attributeName(path) ?? fieldName(path),
       'value': value is Undefined ? null : value,
       ...params,
     };
+    _otherNames(allParams, path, others);
     if (Validator.flags.shortInMessage && fallback == DefaultMessages.inList) {
       fallback = DefaultMessages.inListShort;
     }
@@ -80,6 +82,41 @@ class ParseState {
         params: allParams,
       ),
     );
+  }
+
+  /// The name shown for the value at [path], or `null` to show the key.
+  /// See [MessageResolver.attributeName].
+  String? attributeName(List<Object> path) {
+    return resolver.attributeName(path);
+  }
+
+  /// `{other}` and `{others}` are keys next to [path]. Show their names,
+  /// like Laravel. [others] are the keys of `{others}`. With no names set,
+  /// nothing changes.
+  void _otherNames(
+    Map<String, Object?> params,
+    List<Object> path,
+    List<String> others,
+  ) {
+    List<Object> parent = path.isEmpty
+        ? path
+        : path.sublist(0, path.length - 1);
+    Object? other = params['other'];
+    if (other is String) {
+      params['other'] = attributeName(<Object>[...parent, other]) ?? other;
+    }
+    if (others.isEmpty) return;
+    List<String?> names = <String?>[
+      for (String key in others) attributeName(<Object>[...parent, key]),
+    ];
+    if (names.every(_isNull)) return;
+    params['others'] = <String>[
+      for (int i = 0; i < others.length; i++) names[i] ?? others[i],
+    ].join(' or ');
+  }
+
+  static bool _isNull(String? value) {
+    return value == null;
   }
 
   /// The name used for `{field}`: the last text key in the path.

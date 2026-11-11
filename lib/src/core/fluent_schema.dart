@@ -75,6 +75,26 @@ mixin FluentSchema<S extends BaseSchema<O>, O> on BaseSchema<O> {
     return use(Confirmed<O>(other: other, message: message));
   }
 
+  /// Must not equal the key [other] in the same object. Laravel
+  /// `different`.
+  S different(String other, {String? message}) {
+    return use(Different<O>(other, message: message));
+  }
+
+  /// Must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`. Laravel
+  /// `accepted`. `v.bool()` takes only `true` and `false`: use
+  /// `v.coerce.bool().accepted()` for form words (any case), or
+  /// `v.string()` / `v.any()` to check the exact words.
+  S accepted({String? message}) {
+    return use(Accepted<O>(message: message));
+  }
+
+  /// Must be `false`, `0`, `'0'`, `'false'`, `'no'` or `'off'`. Laravel
+  /// `declined`. See [accepted] for the schema to use.
+  S declined({String? message}) {
+    return use(Declined<O>(message: message));
+  }
+
   /// Add a description for docs (JSON Schema `description`).
   S describe(String text) {
     BaseSchema<O> next = copySchema();

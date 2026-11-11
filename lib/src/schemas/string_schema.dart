@@ -65,6 +65,11 @@ class StringSchema extends BaseSchema<String>
     return use(UuidRule(message: message));
   }
 
+  /// Must be a ULID. Laravel `ulid`.
+  StringSchema ulid({String? message}) {
+    return use(Ulid(message: message));
+  }
+
   /// Must be an IPv4 or IPv6 address.
   StringSchema ip({String? message}) {
     return use(IpRule(message: message));

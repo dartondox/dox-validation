@@ -1,4 +1,7 @@
+import '../constants/issue_codes.dart';
 import '../constants/schema_constants.dart';
+import '../validator.dart';
+import 'parse_state.dart';
 
 /// Everything a [MessageResolver] needs to build one message.
 class MessageRequest {
@@ -39,11 +42,21 @@ class MessageRequest {
 /// 3. `messages['code']`, like `required`
 /// 4. the default English template
 ///
+/// With `ValidationFlags.laravelMessageKeys`, steps 2 and 3 try the Dox
+/// code first, then its Laravel name (see [IssueCodes.laravel]):
+/// `name.min` also finds `min_length`.
+///
+/// [attributes] are the names shown for `{field}`, by key, like Laravel's
+/// custom attributes: `{'first_name': 'first name'}`.
+///
 /// For i18n, extend this class and override [resolve], then set
 /// [MessageResolver.global] or pass it to `safeParse(messages: ...)`.
 class MessageResolver {
-  MessageResolver({Map<String, String> messages = const <String, String>{}})
-    : _messages = <String, String>{...messages};
+  MessageResolver({
+    Map<String, String> messages = const <String, String>{},
+    Map<String, String> attributes = const <String, String>{},
+  }) : _messages = <String, String>{...messages},
+       _attributes = <String, String>{...attributes};
 
   /// The resolver used when none is passed to `parse`.
   static MessageResolver global = MessageResolver();
@@ -58,6 +71,49 @@ class MessageResolver {
   /// Add or replace templates.
   void setMessages(Map<String, String> messages) {
     _messages.addAll(messages);
+  }
+
+  final Map<String, String> _attributes;
+
+  /// The names shown for `{field}`, by key.
+  Map<String, String> get attributes {
+    return Map<String, String>.unmodifiable(_attributes);
+  }
+
+  /// Add or replace names shown for `{field}`.
+  void setAttributes(Map<String, String> attributes) {
+    _attributes.addAll(attributes);
+  }
+
+  /// The name shown for `{field}` of the value at [path], or `null` to
+  /// show the key. Looked up in [attributes] by the dotted path, then
+  /// with `*` for list indexes, then by the field name (the last text key).
+  String? attributeName(List<Object> path) {
+    return nameIn(_attributes, path);
+  }
+
+  /// The name of [path] in [names]: by the dotted path, then with `*` for
+  /// list indexes, then by the field name. `null` when there is none.
+  static String? nameIn(Map<String, String> names, List<Object> path) {
+    if (names.isEmpty || path.isEmpty) return null;
+    return names[path.join('.')] ??
+        names[_wildcardPath(path)] ??
+        names[ParseState.fieldName(path)];
+  }
+
+  /// [messages] at `prefix.code`, else at `prefix.<Laravel name>` (see
+  /// [IssueCodes.laravel]) when `ValidationFlags.laravelMessageKeys` is
+  /// on. An empty [prefix] looks up the code alone.
+  static String? find(
+    Map<String, String> messages,
+    String prefix,
+    String code,
+  ) {
+    String start = prefix.isEmpty ? '' : '$prefix.';
+    String? text = messages['$start$code'];
+    if (text != null || !Validator.flags.laravelMessageKeys) return text;
+    String? laravel = IssueCodes.laravel[code];
+    return laravel == null ? null : messages['$start$laravel'];
   }
 
   /// Build the final message.
@@ -95,19 +151,15 @@ class MessageResolver {
 
   String? _findTemplate(String code, List<Object> path) {
     if (path.isNotEmpty) {
-      String exact = '${path.join('.')}.$code';
-      if (_messages.containsKey(exact)) {
-        return _messages[exact];
-      }
-      String wildcard = '${_wildcardPath(path)}.$code';
-      if (_messages.containsKey(wildcard)) {
-        return _messages[wildcard];
-      }
+      String? text =
+          find(_messages, path.join('.'), code) ??
+          find(_messages, _wildcardPath(path), code);
+      if (text != null) return text;
     }
-    return _messages[code];
+    return find(_messages, '', code);
   }
 
-  String _wildcardPath(List<Object> path) {
+  static String _wildcardPath(List<Object> path) {
     List<String> parts = <String>[];
     for (Object part in path) {
       parts.add(part is int ? '*' : part.toString());

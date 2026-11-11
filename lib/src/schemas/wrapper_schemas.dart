@@ -31,6 +31,54 @@ class OptionalSchema<O> extends BaseSchema<O?>
     return _addRequiredWhen(RequiredWith(others, message: message));
   }
 
+  /// Required unless the key [other] in the same object has [value].
+  /// Laravel `required_unless`.
+  OptionalSchema<O> requiredUnless(
+    String other,
+    Object? value, {
+    String? message,
+  }) {
+    return _addRequiredWhen(RequiredUnless(other, value, message: message));
+  }
+
+  /// Required when any of the keys [others] in the same object is missing
+  /// or empty. Laravel `required_without`.
+  OptionalSchema<O> requiredWithout(List<String> others, {String? message}) {
+    return _addRequiredWhen(RequiredWithout(others, message: message));
+  }
+
+  /// Required when all of the keys [others] in the same object are
+  /// missing or empty. Laravel `required_without_all`.
+  OptionalSchema<O> requiredWithoutAll(List<String> others, {String? message}) {
+    return _addRequiredWhen(RequiredWithoutAll(others, message: message));
+  }
+
+  /// When the key is sent, it must have a value. Laravel `filled`.
+  OptionalSchema<O> filled({String? message}) {
+    return _addRequiredWhen(Filled(message: message));
+  }
+
+  /// The key must be sent, maybe with an empty value. Add `.nullable()`
+  /// to allow `null`. Laravel `present`.
+  OptionalSchema<O> present({String? message}) {
+    return _addRequiredWhen(Present(message: message));
+  }
+
+  /// The key must be missing, or blank text. Laravel `prohibited`.
+  OptionalSchema<O> prohibited({String? message}) {
+    return _addRequiredWhen(Prohibited(message: message));
+  }
+
+  /// Like [prohibited], when the key [other] in the same object has
+  /// [value]. Laravel `prohibited_if`.
+  OptionalSchema<O> prohibitedIf(
+    String other,
+    Object? value, {
+    String? message,
+  }) {
+    return _addRequiredWhen(ProhibitedIf(other, value, message: message));
+  }
+
   OptionalSchema<O> _addRequiredWhen(RequiredWhen rule) {
     return copyBaseInto(
       OptionalSchema<O>(
@@ -44,18 +92,19 @@ class OptionalSchema<O> extends BaseSchema<O?>
   /// [requiredWhen] rule applies.
   bool _missingButRequired(Object? input, ParseState state, List<Object> path) {
     if (requiredWhen.isEmpty) return false;
-    if (input is! Undefined && !RequiredWhen.isEmpty(input)) return false;
+    bool empty = input is Undefined || RequiredWhen.isEmpty(input);
+    // a value: only rules like `prohibited` run, so skip the work
+    if (!empty && !requiredWhen.any(_checksValues)) return false;
     List<Object> parentPath = path.isEmpty
         ? path
         : path.sublist(0, path.length - 1);
+    Object? raw = DataPath.read(state.root, parentPath);
     // the other fields as the app gets them, not the raw input
-    Object? parent = ConvertedValues.parent(
-      state,
-      parentPath,
-      DataPath.read(state.root, parentPath),
-    );
+    Object? parent = ConvertedValues.parent(state, parentPath, raw);
+    Object key = path.isEmpty ? '' : path.last;
     for (RequiredWhen rule in requiredWhen) {
-      if (!rule.appliesTo(parent)) continue;
+      if (!empty && !rule.checksValues) continue;
+      if (!rule.appliesToField(parent, raw, key)) continue;
       RequiredWhenIssue issue = RequiredWhenIssue(rule);
       state.addIssue(
         path: path,
@@ -64,10 +113,15 @@ class OptionalSchema<O> extends BaseSchema<O?>
         value: input,
         params: issue.params,
         message: rule.message,
+        others: issue.others,
       );
       return true;
     }
     return false;
+  }
+
+  static bool _checksValues(RequiredWhen rule) {
+    return rule.checksValues;
   }
 
   @override

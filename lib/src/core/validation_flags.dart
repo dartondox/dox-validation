@@ -1,3 +1,5 @@
+import '../constants/issue_codes.dart';
+
 /// Opt-in behaviors of dox_validation. Each one is off by default.
 ///
 /// Set them in `Validator.flags`:
@@ -17,6 +19,7 @@ class ValidationFlags {
     this.dtoAllErrors = false,
     this.dtoRejectEmptyList = false,
     this.dtoMaybeRejectsEmpty = false,
+    this.laravelMessageKeys = false,
   });
 
   /// Every flag on.
@@ -26,7 +29,8 @@ class ValidationFlags {
       shortInMessage = true,
       dtoAllErrors = true,
       dtoRejectEmptyList = true,
-      dtoMaybeRejectsEmpty = true;
+      dtoMaybeRejectsEmpty = true,
+      laravelMessageKeys = true;
 
   /// Fluent schemas turn each `""` in the input into `null` before they
   /// check it, also in nested maps and lists. So `""` fails a required
@@ -66,4 +70,11 @@ class ValidationFlags {
   /// still gives `Maybe.missing()`. Off: `""` counts as not sent.
   /// Needs DTO code from a dox_builder that knows it.
   final bool dtoMaybeRejectsEmpty;
+
+  /// A custom message key can use the Laravel rule name of a code, like
+  /// `name.min` for the `min_length` error (see [IssueCodes.laravel]). It
+  /// works in `@Dto(messages:)` and in a `MessageResolver`. At each step
+  /// of the lookup the Dox code wins. The issue code does not change.
+  /// Off: only the Dox codes match.
+  final bool laravelMessageKeys;
 }

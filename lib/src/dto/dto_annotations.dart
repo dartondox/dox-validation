@@ -42,6 +42,9 @@ class Dto {
     this.strict = false,
     this.messages = const <String, String>{},
     this.emptyStringsToNull = false,
+    this.trim = false,
+    this.coerce = false,
+    this.attributes = const <String, String>{},
   });
 
   /// Where to read the input. See [Source].
@@ -64,6 +67,26 @@ class Dto {
   /// `false` (the default): `""` counts as missing.
   /// It works on the keys of this DTO, not on a nested DTO or list items.
   final bool emptyStringsToNull;
+
+  /// `true`: every `String` field (and the text items of its lists and
+  /// maps) is trimmed, like Laravel's `TrimStrings`. So `"   "` counts as
+  /// missing and fails `required`. It is `@Trim()` on each text field.
+  /// A nested DTO uses its own `@Dto(trim:)`.
+  final bool trim;
+
+  /// `true`: a JSON body may send text for numbers and bools, like a form.
+  /// `"18"` is read as `18`, `"4.5"` as `4.5`, and `"true"`, `"1"`,
+  /// `"yes"`, `"on"` (and the opposites) as a bool. A bool also takes the
+  /// numbers `1` and `0`. `false` (the default): JSON is strict.
+  /// A nested DTO uses its own `@Dto(coerce:)`.
+  final bool coerce;
+
+  /// The names to show for `{field}` in the messages of this DTO, by
+  /// input key: `{'first_name': 'first name'}`. Like Laravel's custom
+  /// attributes. Keys are looked up like message keys: the dotted path
+  /// from this DTO, then with `*` for list indexes, then the field name.
+  /// A key with no name shows the key, as before.
+  final Map<String, String> attributes;
 }
 
 /// The input key of this field. Default: the field name in snake_case.
@@ -330,7 +353,12 @@ class UniqueItems {
 // Dates
 // ---------------------------------------------------------------------------
 
-/// After [date] (exclusive). An ISO 8601 date, or `'now'`.
+/// After [date] (exclusive). [date] is one of:
+/// - an ISO 8601 date, like `'2024-01-01'`
+/// - a word: `'now'`, `'today'`, `'tomorrow'` or `'yesterday'` (UTC).
+///   `'today'` is the start of the day.
+/// - the input key of another `DateTime` field of this DTO, like
+///   `'start_date'`. When that field has no value, this check passes.
 class After {
   const After(this.date, {this.message});
 
@@ -338,9 +366,25 @@ class After {
   final String? message;
 }
 
-/// Before [date] (exclusive). An ISO 8601 date, or `'now'`.
+/// Before [date] (exclusive). [date] works like in [After].
 class Before {
   const Before(this.date, {this.message});
+
+  final String date;
+  final String? message;
+}
+
+/// On or after [date]. [date] works like in [After].
+class AfterOrEqual {
+  const AfterOrEqual(this.date, {this.message});
+
+  final String date;
+  final String? message;
+}
+
+/// On or before [date]. [date] works like in [After].
+class BeforeOrEqual {
+  const BeforeOrEqual(this.date, {this.message});
 
   final String date;
   final String? message;
@@ -420,9 +464,9 @@ class Dimensions {
 // Required when
 // ---------------------------------------------------------------------------
 
-/// Base of [RequiredIf] and [RequiredWith]. The field is required only
-/// when [appliesTo] is `true`. Use them on a nullable field, a `Maybe`
-/// field or a field with a default.
+/// Base of [RequiredIf], [RequiredWith] and the other `Required*` rules.
+/// The field is required only when [appliesTo] is `true`. Use them on a
+/// nullable field, a `Maybe` field or a field with a default.
 abstract class RequiredWhen {
   const RequiredWhen({this.message});
 
@@ -431,6 +475,36 @@ abstract class RequiredWhen {
   /// `true` when the field is required. [parent] is the raw input
   /// object that holds the field.
   bool appliesTo(Object? parent);
+
+  /// `true` when the field [key] is required. [parent] is the object
+  /// with the converted values, [raw] the raw input object. The default
+  /// calls [appliesTo]. [Filled] and [Present] use [raw] and [key].
+  bool appliesToField(Object? parent, Object? raw, Object key) {
+    return appliesTo(parent);
+  }
+
+  /// `false`: the rule runs only when the value is missing or empty.
+  /// `true`: it runs for every value ([Prohibited], [ProhibitedIf]).
+  bool get checksValues {
+    return false;
+  }
+
+  /// `true` when the raw [other] value matches one of [values]. Text and
+  /// numbers match by text, so `'1'` matches `1`. An enum value matches
+  /// its name.
+  static bool matches(Object? other, List<Object?> values) {
+    for (Object? value in values) {
+      Object? item = value is Enum ? value.name : value;
+      if (item == other) return true;
+      if (other != null && item != null && '$item' == '$other') return true;
+    }
+    return false;
+  }
+
+  /// [value] as a list: a list stays, one value gives a list of one.
+  static List<Object?> listOf(Object? value) {
+    return value is List ? value : <Object?>[value];
+  }
 
   /// The raw value of [key] in [parent], or `null`. In text input a key
   /// can come many times; then it is a list and the last one is used.
@@ -469,19 +543,12 @@ class RequiredIf extends RequiredWhen {
 
   /// [value] as a list.
   List<Object?> get values {
-    Object? one = value;
-    return one is List ? one : <Object?>[one];
+    return RequiredWhen.listOf(value);
   }
 
   @override
   bool appliesTo(Object? parent) {
-    Object? raw = RequiredWhen.read(parent, other);
-    for (Object? value in values) {
-      Object? item = value is Enum ? value.name : value;
-      if (item == raw) return true;
-      if (raw != null && item != null && '$item' == '$raw') return true;
-    }
-    return false;
+    return RequiredWhen.matches(RequiredWhen.read(parent, other), values);
   }
 }
 
@@ -498,5 +565,209 @@ class RequiredWith extends RequiredWhen {
       if (!RequiredWhen.isEmpty(RequiredWhen.read(parent, key))) return true;
     }
     return false;
+  }
+}
+
+/// Required unless the key [other] has [value]:
+/// `@RequiredUnless('type', 'guest')`. Give a list for many values.
+/// Laravel `required_unless`. A missing [other] counts as `null`, so the
+/// field is required then. [other] matches like in [RequiredIf].
+class RequiredUnless extends RequiredWhen {
+  const RequiredUnless(this.other, this.value, {super.message});
+
+  final String other;
+
+  /// One value, or a list of values (any of them).
+  final Object? value;
+
+  /// [value] as a list.
+  List<Object?> get values {
+    return RequiredWhen.listOf(value);
+  }
+
+  @override
+  bool appliesTo(Object? parent) {
+    return !RequiredWhen.matches(RequiredWhen.read(parent, other), values);
+  }
+}
+
+/// Required when any of the keys [others] is missing or empty:
+/// `@RequiredWithout(['email'])`. Laravel `required_without`.
+class RequiredWithout extends RequiredWhen {
+  const RequiredWithout(this.others, {super.message});
+
+  final List<String> others;
+
+  @override
+  bool appliesTo(Object? parent) {
+    for (String key in others) {
+      if (RequiredWhen.isEmpty(RequiredWhen.read(parent, key))) return true;
+    }
+    return false;
+  }
+}
+
+/// Required when all of the keys [others] are missing or empty:
+/// `@RequiredWithoutAll(['email', 'phone'])`.
+/// Laravel `required_without_all`.
+class RequiredWithoutAll extends RequiredWhen {
+  const RequiredWithoutAll(this.others, {super.message});
+
+  final List<String> others;
+
+  @override
+  bool appliesTo(Object? parent) {
+    for (String key in others) {
+      if (!RequiredWhen.isEmpty(RequiredWhen.read(parent, key))) return false;
+    }
+    return true;
+  }
+}
+
+/// When the key is sent, it must have a value: not `null`, not blank
+/// text, not an empty list. A missing key passes. Laravel `filled`.
+class Filled extends RequiredWhen {
+  const Filled({super.message});
+
+  @override
+  bool appliesTo(Object? parent) {
+    return false;
+  }
+
+  @override
+  bool appliesToField(Object? parent, Object? raw, Object key) {
+    return raw is Map && raw.containsKey(key);
+  }
+}
+
+/// The key must be sent. Its value may be empty or `null`.
+/// Laravel `present`.
+class Present extends RequiredWhen {
+  const Present({super.message});
+
+  @override
+  bool appliesTo(Object? parent) {
+    return false;
+  }
+
+  @override
+  bool appliesToField(Object? parent, Object? raw, Object key) {
+    // a list item has no key to miss
+    return raw is Map && !raw.containsKey(key);
+  }
+}
+
+/// The key must be missing, or blank text: `@Prohibited()`.
+/// Laravel `prohibited` (checked against Laravel 9.37): a key with `null`,
+/// `[]`, `{}`, `0` or `false` fails, `""` and `"  "` pass. It reads the
+/// raw input, so it runs before the type check.
+class Prohibited extends RequiredWhen {
+  const Prohibited({super.message});
+
+  @override
+  bool get checksValues {
+    return true;
+  }
+
+  @override
+  bool appliesTo(Object? parent) {
+    return false;
+  }
+
+  @override
+  bool appliesToField(Object? parent, Object? raw, Object key) {
+    return sent(raw, key);
+  }
+
+  /// `true` when [key] is in [raw] with a value that is not blank text.
+  static bool sent(Object? raw, Object key) {
+    if (raw is! Map || !raw.containsKey(key)) return false;
+    Object? value = raw[key];
+    return !(value is String && value.trim().isEmpty);
+  }
+}
+
+/// When the key [other] has [value], the field must be missing or
+/// empty: `@ProhibitedIf('type', 'guest')`. Laravel `prohibited_if`.
+/// Empty: `null`, blank text, an empty list or map. `0` and `false` fail.
+/// [other] matches like in [RequiredIf]. Give a list for many values.
+class ProhibitedIf extends RequiredWhen {
+  const ProhibitedIf(this.other, this.value, {super.message});
+
+  final String other;
+
+  /// One value, or a list of values (any of them).
+  final Object? value;
+
+  /// [value] as a list.
+  List<Object?> get values {
+    return RequiredWhen.listOf(value);
+  }
+
+  @override
+  bool get checksValues {
+    return true;
+  }
+
+  @override
+  bool appliesTo(Object? parent) {
+    return RequiredWhen.matches(RequiredWhen.read(parent, other), values);
+  }
+
+  @override
+  bool appliesToField(Object? parent, Object? raw, Object key) {
+    // like Laravel `prohibited_if`: an empty value passes (null, blank
+    // text, an empty list or map), `0` and `false` fail
+    return appliesTo(parent) && raw is Map && !RequiredWhen.isEmpty(raw[key]);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Exclude
+// ---------------------------------------------------------------------------
+
+/// Skip the field when the key [other] has [value]:
+/// `@ExcludeIf('type', 'person')`. Laravel `exclude_if`. Then no check of
+/// the field runs, and it gets its default (or `null`, or
+/// `Maybe.missing()`), as if it was not sent. When [other] is missing,
+/// the field is not skipped. [other] is read from the raw input and
+/// matches like in [RequiredIf]. Use it on a nullable field, a `Maybe`
+/// field or a field with a default.
+class ExcludeIf {
+  const ExcludeIf(this.other, this.value);
+
+  final String other;
+
+  /// One value, or a list of values (any of them).
+  final Object? value;
+
+  /// `true` when the field is skipped. [parent] is the raw input object.
+  bool appliesTo(Object? parent) {
+    if (parent is! Map || !parent.containsKey(other)) return false;
+    return RequiredWhen.matches(
+      RequiredWhen.read(parent, other),
+      RequiredWhen.listOf(value),
+    );
+  }
+}
+
+/// Skip the field unless the key [other] has [value]:
+/// `@ExcludeUnless('type', 'company')`. Laravel `exclude_unless`. A
+/// missing [other] counts as `null`, so the field is skipped then.
+/// See [ExcludeIf].
+class ExcludeUnless {
+  const ExcludeUnless(this.other, this.value);
+
+  final String other;
+
+  /// One value, or a list of values (any of them).
+  final Object? value;
+
+  /// `true` when the field is skipped. [parent] is the raw input object.
+  bool appliesTo(Object? parent) {
+    return !RequiredWhen.matches(
+      RequiredWhen.read(parent, other),
+      RequiredWhen.listOf(value),
+    );
   }
 }
