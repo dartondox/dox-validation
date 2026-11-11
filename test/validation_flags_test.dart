@@ -48,8 +48,8 @@ class Signup {
 }
 
 /// A DTO written like the code a dox_builder with the DTO flags makes for:
-/// `@MinLength(2) String name`, `List<String> tags`, `Maybe<String> nick`
-/// and `int age`.
+/// `@MinLength(2) String name`, `@MinItems(2) List<String> tags`,
+/// `Maybe<String> nick` and `int age`.
 class _SignupDto extends DtoSchema<Signup> {
   const _SignupDto();
 
@@ -75,15 +75,18 @@ class _SignupDto extends DtoSchema<Signup> {
     if (c0 == null || c0 is Undefined) s.required(p, 'name', _m);
     Object? c1 = s.list(s.read(input, 'tags'), p, 'tags', _m);
     if (c1 is List) {
+      int b0 = s.issues.length;
       List<String> o0 = <String>[];
       for (int i0 = 0; i0 < c1.length; i0++) {
         Object? x0 = s.string(c1[i0], <Object>[...p, 'tags'], i0, _m);
         if (x0 is String) o0.add(x0);
       }
-      c1 = o0;
+      // a list with a bad item is bad
+      c1 = s.issues.length != b0 ? invalid : o0;
     }
     if (c1 == null || c1 is Undefined || s.emptyList(c1)) {
       s.required(p, 'tags', _m);
+      c1 = invalid;
     }
     Object? c2 = s.string(s.read(input, 'nick'), p, 'nick', _m);
     if (c2 == null || s.sentEmpty(c2, input, 'nick')) {
@@ -100,6 +103,18 @@ class _SignupDto extends DtoSchema<Signup> {
           IssueCodes.minLength,
           DefaultMessages.minLength,
           c0,
+          params: const <String, Object?>{'min': 2},
+        );
+      }
+    }
+    if (c1 is List<String>) {
+      if (!(c1.length >= 2)) {
+        s.fail(
+          p,
+          'tags',
+          IssueCodes.minItems,
+          DefaultMessages.minItems,
+          c1,
           params: const <String, Object?>{'min': 2},
         );
       }
@@ -366,7 +381,7 @@ void main() {
   group('dtoAllErrors', () {
     Map<String, dynamic> input = <String, dynamic>{
       'name': 'a',
-      'tags': <String>['x'],
+      'tags': <String>['x', 'y'],
       'age': 'old',
     };
 
@@ -387,7 +402,7 @@ void main() {
       ParseResult<Signup> result = await const _SignupDto().safeValidateMap(
         <String, dynamic>{
           'name': 'ab',
-          'tags': <String>['x'],
+          'tags': <String>['x', 'y'],
           'age': 3,
         },
       );
@@ -402,12 +417,20 @@ void main() {
       'age': 3,
     };
 
-    test('off: [] passes', () async {
-      expect(await _signupIssues(input), isEmpty);
+    test('off: [] is not required, only its rules run', () async {
+      expect(await _signupIssues(input), <String>['tags min_items']);
     });
 
     test('on: [] fails required', () async {
       Validator.flags = const ValidationFlags(dtoRejectEmptyList: true);
+      expect(await _signupIssues(input), <String>['tags required']);
+    });
+
+    test('on with dtoAllErrors: [] gives only required', () async {
+      Validator.flags = const ValidationFlags(
+        dtoRejectEmptyList: true,
+        dtoAllErrors: true,
+      );
       expect(await _signupIssues(input), <String>['tags required']);
       // only an empty list
       DtoState state = DtoState(root: const <String, dynamic>{});
@@ -419,7 +442,7 @@ void main() {
   group('dtoMaybeRejectsEmpty', () {
     Map<String, dynamic> base = <String, dynamic>{
       'name': 'ab',
-      'tags': <String>['x'],
+      'tags': <String>['x', 'y'],
       'age': 3,
     };
 
@@ -447,5 +470,32 @@ void main() {
       );
       expect(sent.value!.nick.value, 'bo');
     });
+  });
+
+  group('a list with a bad item', () {
+    Future<List<String>> issues(List<Object> tags) {
+      return _signupIssues(<String, dynamic>{
+        'name': 'ab',
+        'tags': tags,
+        'age': 3,
+      });
+    }
+
+    for (ValidationFlags flags in <ValidationFlags>[
+      const ValidationFlags(),
+      const ValidationFlags(dtoRejectEmptyList: true),
+      const ValidationFlags.all(),
+    ]) {
+      String mode = flags.dtoAllErrors
+          ? 'all flags'
+          : flags.dtoRejectEmptyList
+          ? 'dtoRejectEmptyList'
+          : 'flags off';
+      test('$mode: gives only the item error', () async {
+        Validator.flags = flags;
+        expect(await issues(<Object>[5]), <String>['tags.0 string']);
+        expect(await issues(<Object>['a', 5]), <String>['tags.1 string']);
+      });
+    }
   });
 }

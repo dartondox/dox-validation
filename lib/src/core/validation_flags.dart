@@ -48,6 +48,11 @@ class ValidationFlags {
   /// when another field is missing or has the wrong type. So one request
   /// gets all its errors at once. Off: when a field is missing or has the
   /// wrong type, no rule of any field runs.
+  ///
+  /// The order of the errors: first the type and `required` errors of all
+  /// fields (with the errors of a nested DTO at its field), then the
+  /// rule errors. A field with a bad item in its list or map, or a list
+  /// that fails `required`, skips its rules.
   /// Needs DTO code from a dox_builder that knows it.
   final bool dtoAllErrors;
 
