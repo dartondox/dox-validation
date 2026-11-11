@@ -83,16 +83,26 @@ class RegexRule extends BuiltInRule<String> {
 }
 
 /// Text must match [Patterns.alpha], [Patterns.alphaDash] or
-/// [Patterns.alphaNumeric], by [code]. It reads the pattern on each
-/// check, so it follows `Validator.flags`, also for a schema made before
-/// the flags were set.
+/// [Patterns.alphaNumeric], by [code]. It reads the pattern each time it
+/// checks or exports JSON Schema, so it follows `Validator.flags`, also
+/// for a schema made before the flags were set.
 class AlphaRule extends RegexRule {
   AlphaRule(String code, String defaultMessage, {super.message})
     : super(_patternOf(code), code: code, defaultMessage: defaultMessage);
 
   @override
-  bool check(String value, RuleContext context) {
-    return _patternOf(name).hasMatch(value);
+  RegExp get pattern {
+    return _patternOf(name);
+  }
+
+  @override
+  Map<String, Object?> get params {
+    return <String, Object?>{'pattern': pattern.pattern};
+  }
+
+  @override
+  Map<String, dynamic> toJsonSchema() {
+    return <String, dynamic>{'pattern': pattern.pattern};
   }
 
   static RegExp _patternOf(String code) {

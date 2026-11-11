@@ -1,6 +1,43 @@
 import 'package:dox_validation/dox_validation.dart';
 import 'package:test/test.dart';
 
+class Note {
+  Note(this.text);
+
+  final Object? text;
+}
+
+/// A DTO that keeps the raw `text` value, to see what it gets.
+class _NoteDto extends DtoSchema<Note> {
+  const _NoteDto();
+
+  @override
+  Type get type => Note;
+
+  @override
+  String get name => 'Note';
+
+  @override
+  Note? convert(Object? input, DtoState s, List<Object> p) {
+    return Note((input as Map<String, dynamic>)['text']);
+  }
+
+  @override
+  Note fromMap(Map<String, dynamic> input) {
+    return Note(input['text']);
+  }
+
+  @override
+  Map<String, dynamic> toMap(Note value) {
+    return <String, dynamic>{'text': value.text};
+  }
+
+  @override
+  Map<String, dynamic> toJsonSchema() {
+    return <String, dynamic>{'type': 'object'};
+  }
+}
+
 void main() {
   tearDown(() {
     Validator.flags = const ValidationFlags();
@@ -74,6 +111,29 @@ void main() {
       expect(result.success, isTrue);
       expect(result.value, isNull);
     });
+
+    test('on: the input of the caller is not changed', () {
+      Validator.flags = const ValidationFlags(emptyStringsToNull: true);
+      Map<String, dynamic> data = <String, dynamic>{
+        'note': '',
+        'tags': <String>[''],
+      };
+      v
+          .object(<String, Schema<Object?>>{
+            'note': v.string().nullable(),
+            'tags': v.list(v.string().nullable()),
+          })
+          .parse(data);
+      expect(data['note'], '');
+      expect(data['tags'], <String>['']);
+    });
+
+    test('on: a DTO checked on its own keeps ""', () async {
+      Validator.flags = const ValidationFlags(emptyStringsToNull: true);
+      Map<String, dynamic> data = <String, dynamic>{'text': ''};
+      expect(const _NoteDto().parse(data).text, '');
+      expect((await const _NoteDto().validateMap(data)).text, '');
+    });
   });
 
   group('unicodeAlpha', () {
@@ -98,6 +158,35 @@ void main() {
       expect(v.string().alphaDash().safeParse('José 1').success, isFalse);
       // DTO code reads Patterns directly
       expect(Patterns.alpha.hasMatch('José'), isTrue);
+    });
+
+    test('on: a newline at the end, empty text and emoji fail', () {
+      Validator.flags = const ValidationFlags(unicodeAlpha: true);
+      for (StringSchema schema in <StringSchema>[
+        v.string().alpha(),
+        v.string().alphaNumeric(),
+        v.string().alphaDash(),
+      ]) {
+        expect(schema.safeParse('a\n').success, isFalse);
+        expect(schema.safeParse('').success, isFalse);
+        expect(schema.safeParse('😀').success, isFalse);
+        expect(schema.safeParse('a😀').success, isFalse);
+      }
+    });
+
+    test('the JSON Schema pattern follows the flag, like the check', () {
+      // made before the flag is set
+      StringSchema alpha = v.string().alpha();
+      StringSchema dash = v.string().alphaDash();
+      StringSchema numeric = v.string().alphaNumeric();
+      expect(alpha.toJsonSchema()['pattern'], r'^[a-zA-Z]+$');
+      expect(dash.toJsonSchema()['pattern'], r'^[a-zA-Z0-9_-]+$');
+      expect(numeric.toJsonSchema()['pattern'], r'^[a-zA-Z0-9]+$');
+      Validator.flags = const ValidationFlags(unicodeAlpha: true);
+      expect(alpha.toJsonSchema()['pattern'], r'^[\p{L}\p{M}]+$');
+      expect(dash.toJsonSchema()['pattern'], r'^[\p{L}\p{M}\p{N}_-]+$');
+      expect(numeric.toJsonSchema()['pattern'], r'^[\p{L}\p{M}\p{N}]+$');
+      expect(alpha.rules.single.params['pattern'], r'^[\p{L}\p{M}]+$');
     });
   });
 
@@ -147,6 +236,22 @@ void main() {
           .issues
           .single;
       expect(custom.message, 'Pick one of admin, and user');
+    });
+
+    test('on: a message on the rule itself still wins', () {
+      Validator.flags = const ValidationFlags(shortInMessage: true);
+      // what the code for `@In([...], message: '...')` calls
+      DtoState state = DtoState(root: const <String, dynamic>{});
+      state.fail(
+        const <Object>[],
+        'role',
+        IssueCodes.inList,
+        DefaultMessages.inList,
+        'x',
+        params: const <String, Object?>{'values': 'admin'},
+        message: 'Pick {values}',
+      );
+      expect(state.issues.single.message, 'Pick admin');
     });
   });
 }
