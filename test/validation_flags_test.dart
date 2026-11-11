@@ -38,6 +38,108 @@ class _NoteDto extends DtoSchema<Note> {
   }
 }
 
+class Signup {
+  Signup(this.name, this.tags, this.nick, this.age);
+
+  final String name;
+  final List<String> tags;
+  final Maybe<String> nick;
+  final int age;
+}
+
+/// A DTO written like the code a dox_builder with the DTO flags makes for:
+/// `@MinLength(2) String name`, `List<String> tags`, `Maybe<String> nick`
+/// and `int age`.
+class _SignupDto extends DtoSchema<Signup> {
+  const _SignupDto();
+
+  static const Map<String, String> _m = <String, String>{};
+
+  @override
+  Type get type => Signup;
+
+  @override
+  String get name => 'Signup';
+
+  @override
+  bool get usesRequiredWhen => false;
+
+  @override
+  Signup? convert(Object? input, DtoState s, List<Object> p) {
+    if (input is! Map) {
+      s.notObject(input, p, _m);
+      return null;
+    }
+    int e = s.issues.length;
+    Object? c0 = s.string(s.read(input, 'name'), p, 'name', _m);
+    if (c0 == null || c0 is Undefined) s.required(p, 'name', _m);
+    Object? c1 = s.list(s.read(input, 'tags'), p, 'tags', _m);
+    if (c1 is List) {
+      List<String> o0 = <String>[];
+      for (int i0 = 0; i0 < c1.length; i0++) {
+        Object? x0 = s.string(c1[i0], <Object>[...p, 'tags'], i0, _m);
+        if (x0 is String) o0.add(x0);
+      }
+      c1 = o0;
+    }
+    if (c1 == null || c1 is Undefined || s.emptyList(c1)) {
+      s.required(p, 'tags', _m);
+    }
+    Object? c2 = s.string(s.read(input, 'nick'), p, 'nick', _m);
+    if (c2 == null || s.sentEmpty(c2, input, 'nick')) {
+      s.required(p, 'nick', _m);
+    }
+    Object? c3 = s.integer(s.read(input, 'age'), p, 'age', _m);
+    if (c3 == null || c3 is Undefined) s.required(p, 'age', _m);
+    if (s.issues.length != e && !s.allErrors) return null;
+    if (c0 is String) {
+      if (!(c0.runes.length >= 2)) {
+        s.fail(
+          p,
+          'name',
+          IssueCodes.minLength,
+          DefaultMessages.minLength,
+          c0,
+          params: const <String, Object?>{'min': 2},
+        );
+      }
+    }
+    if (s.issues.length != e) return null;
+    return Signup(
+      c0 as String,
+      c1 as List<String>,
+      c2 is Undefined
+          ? const Maybe<String>.missing()
+          : Maybe<String>(c2 as String),
+      c3 as int,
+    );
+  }
+
+  @override
+  Signup fromMap(Map<String, dynamic> input) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Map<String, dynamic> toMap(Signup value) {
+    return <String, dynamic>{};
+  }
+
+  @override
+  Map<String, dynamic> toJsonSchema() {
+    return <String, dynamic>{'type': 'object'};
+  }
+}
+
+/// The dotted path and code of each issue of [input].
+Future<List<String>> _signupIssues(Map<String, dynamic> input) async {
+  ParseResult<Signup> result = await const _SignupDto().safeValidateMap(input);
+  return <String>[
+    for (ValidationIssue issue in result.issues)
+      '${issue.dottedPath} ${issue.code}',
+  ];
+}
+
 void main() {
   tearDown(() {
     Validator.flags = const ValidationFlags();
@@ -48,10 +150,16 @@ void main() {
     expect(off.emptyStringsToNull, isFalse);
     expect(off.unicodeAlpha, isFalse);
     expect(off.shortInMessage, isFalse);
+    expect(off.dtoAllErrors, isFalse);
+    expect(off.dtoRejectEmptyList, isFalse);
+    expect(off.dtoMaybeRejectsEmpty, isFalse);
     ValidationFlags on = const ValidationFlags.all();
     expect(on.emptyStringsToNull, isTrue);
     expect(on.unicodeAlpha, isTrue);
     expect(on.shortInMessage, isTrue);
+    expect(on.dtoAllErrors, isTrue);
+    expect(on.dtoRejectEmptyList, isTrue);
+    expect(on.dtoMaybeRejectsEmpty, isTrue);
   });
 
   group('emptyStringsToNull', () {
@@ -252,6 +360,92 @@ void main() {
         message: 'Pick {values}',
       );
       expect(state.issues.single.message, 'Pick admin');
+    });
+  });
+
+  group('dtoAllErrors', () {
+    Map<String, dynamic> input = <String, dynamic>{
+      'name': 'a',
+      'tags': <String>['x'],
+      'age': 'old',
+    };
+
+    test('off: a type error stops the rules of other fields', () async {
+      expect(await _signupIssues(input), <String>['age integer']);
+    });
+
+    test('on: the rules of the good fields run too', () async {
+      Validator.flags = const ValidationFlags(dtoAllErrors: true);
+      expect(await _signupIssues(input), <String>[
+        'age integer',
+        'name min_length',
+      ]);
+    });
+
+    test('on: good input still passes', () async {
+      Validator.flags = const ValidationFlags(dtoAllErrors: true);
+      ParseResult<Signup> result = await const _SignupDto().safeValidateMap(
+        <String, dynamic>{
+          'name': 'ab',
+          'tags': <String>['x'],
+          'age': 3,
+        },
+      );
+      expect(result.success, isTrue);
+    });
+  });
+
+  group('dtoRejectEmptyList', () {
+    Map<String, dynamic> input = <String, dynamic>{
+      'name': 'ab',
+      'tags': <String>[],
+      'age': 3,
+    };
+
+    test('off: [] passes', () async {
+      expect(await _signupIssues(input), isEmpty);
+    });
+
+    test('on: [] fails required', () async {
+      Validator.flags = const ValidationFlags(dtoRejectEmptyList: true);
+      expect(await _signupIssues(input), <String>['tags required']);
+      // only an empty list
+      DtoState state = DtoState(root: const <String, dynamic>{});
+      expect(state.emptyList(<String>['x']), isFalse);
+      expect(state.emptyList(''), isFalse);
+    });
+  });
+
+  group('dtoMaybeRejectsEmpty', () {
+    Map<String, dynamic> base = <String, dynamic>{
+      'name': 'ab',
+      'tags': <String>['x'],
+      'age': 3,
+    };
+
+    test('off: "" counts as not sent', () async {
+      ParseResult<Signup> result = await const _SignupDto().safeValidateMap(
+        <String, dynamic>{...base, 'nick': ''},
+      );
+      expect(result.success, isTrue);
+      expect(result.value!.nick.isPresent, isFalse);
+    });
+
+    test('on: "" fails required, a missing key still passes', () async {
+      Validator.flags = const ValidationFlags(dtoMaybeRejectsEmpty: true);
+      expect(
+        await _signupIssues(<String, dynamic>{...base, 'nick': ''}),
+        <String>['nick required'],
+      );
+      ParseResult<Signup> missing = await const _SignupDto().safeValidateMap(
+        base,
+      );
+      expect(missing.success, isTrue);
+      expect(missing.value!.nick.isPresent, isFalse);
+      ParseResult<Signup> sent = await const _SignupDto().safeValidateMap(
+        <String, dynamic>{...base, 'nick': 'bo'},
+      );
+      expect(sent.value!.nick.value, 'bo');
     });
   });
 }

@@ -4,6 +4,11 @@
   - `emptyStringsToNull`: fluent schemas turn each `""` in the input into `null` before they check it, also in nested maps and lists. So `""` fails a required field.
   - `unicodeAlpha`: `alpha`, `alphaNumeric` and `alphaDash` accept Unicode letters and marks (like `José`), and Unicode digits where digits are allowed. It works for fluent schemas and DTOs.
   - `shortInMessage`: the default `in` message is `The selected {field} is invalid`, with no list of values.
+- New: three opt-in `ValidationFlags` for DTOs. Each one needs DTO code from a dox_builder that knows it. Code from an older dox_builder works as before.
+  - `dtoAllErrors`: a DTO runs the rules of each field that has the right type, also when another field is missing or has the wrong type. So one request gets all its errors at once.
+  - `dtoRejectEmptyList`: a required `List` field fails `required` on `[]`.
+  - `dtoMaybeRejectsEmpty`: a `Maybe<T>` field (with `T` not nullable) fails `required` when the key is sent with an empty value, like `""`. A missing key still gives `Maybe.missing()`.
+- New: `DtoState.allErrors`, `DtoState.emptyList()` and `DtoState.sentEmpty()`, used by the generated code.
 - New: `AlphaRule` and `DefaultMessages.inListShort`. `Patterns.alpha`, `Patterns.alphaDash` and `Patterns.alphaNumeric` are now getters that follow `Validator.flags`.
 - Faster: a DTO with no `@RequiredIf` or `@RequiredWith` (and no nested DTO with them) no longer keeps each converted value. Needs a dox_builder that knows it. Code from an older dox_builder works as before.
 - New: `DtoSchema.usesRequiredWhen` and `DtoState.keepValues`, used by the generated code. `DtoState(keepValues: true)` is the default, so nothing changes for code that makes a `DtoState`.

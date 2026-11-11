@@ -14,13 +14,19 @@ class ValidationFlags {
     this.emptyStringsToNull = false,
     this.unicodeAlpha = false,
     this.shortInMessage = false,
+    this.dtoAllErrors = false,
+    this.dtoRejectEmptyList = false,
+    this.dtoMaybeRejectsEmpty = false,
   });
 
   /// Every flag on.
   const ValidationFlags.all()
     : emptyStringsToNull = true,
       unicodeAlpha = true,
-      shortInMessage = true;
+      shortInMessage = true,
+      dtoAllErrors = true,
+      dtoRejectEmptyList = true,
+      dtoMaybeRejectsEmpty = true;
 
   /// Fluent schemas turn each `""` in the input into `null` before they
   /// check it, also in nested maps and lists. So `""` fails a required
@@ -37,4 +43,22 @@ class ValidationFlags {
   /// The default `in` message is `The selected {field} is invalid`. It
   /// does not list the allowed values. Off: the message lists them.
   final bool shortInMessage;
+
+  /// A DTO runs the rules of each field that has the right type, also
+  /// when another field is missing or has the wrong type. So one request
+  /// gets all its errors at once. Off: when a field is missing or has the
+  /// wrong type, no rule of any field runs.
+  /// Needs DTO code from a dox_builder that knows it.
+  final bool dtoAllErrors;
+
+  /// A required `List` field of a DTO fails `required` on `[]`.
+  /// Off: `[]` passes.
+  /// Needs DTO code from a dox_builder that knows it.
+  final bool dtoRejectEmptyList;
+
+  /// A `Maybe<T>` field of a DTO (with `T` not nullable) fails `required`
+  /// when the key is sent with an empty value, like `""`. A missing key
+  /// still gives `Maybe.missing()`. Off: `""` counts as not sent.
+  /// Needs DTO code from a dox_builder that knows it.
+  final bool dtoMaybeRejectsEmpty;
 }
