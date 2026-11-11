@@ -8,6 +8,7 @@ import '../core/parse_state.dart';
 import '../core/rule.dart';
 import '../core/sentinels.dart';
 import '../rules/field_rules.dart';
+import '../validator.dart';
 import 'dto_annotations.dart';
 import 'file_types.dart';
 
@@ -298,6 +299,27 @@ class DtoState extends ParseState {
       if (other == dotted || other.startsWith('$dotted.')) return true;
     }
     return false;
+  }
+
+  /// [ValidationFlags.dtoAllErrors]: the generated code runs the field
+  /// rules even when a field is missing or has the wrong type.
+  bool get allErrors {
+    return Validator.flags.dtoAllErrors;
+  }
+
+  /// [ValidationFlags.dtoRejectEmptyList]: `true` when [value] is an empty
+  /// list. The generated code calls it for a required `List` field.
+  bool emptyList(Object? value) {
+    return value is List && value.isEmpty && Validator.flags.dtoRejectEmptyList;
+  }
+
+  /// [ValidationFlags.dtoMaybeRejectsEmpty]: `true` when [key] is in
+  /// [input] but its value counts as missing (like `""`). The generated
+  /// code calls it for a `Maybe<T>` field with `T` not nullable.
+  bool sentEmpty(Object? value, Map<dynamic, dynamic> input, Object key) {
+    return value is Undefined &&
+        Validator.flags.dtoMaybeRejectsEmpty &&
+        input.containsKey(key);
   }
 
   // -------------------------------------------------------------------------
