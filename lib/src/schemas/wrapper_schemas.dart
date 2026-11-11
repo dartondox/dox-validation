@@ -394,3 +394,84 @@ class TransformSchema<I, O> extends BaseSchema<O>
     return copyBaseInto(TransformSchema<I, O>(inner, transformer));
   }
 }
+
+/// Leaves the key out of an object when [condition] applies. Made by
+/// `.excludeIf()` and `.excludeUnless()`. The object schema checks
+/// [condition] before the field, so the wrappers around it do not
+/// matter. Anywhere else it only runs [inner].
+class ExcludeSchema<O> extends BaseSchema<O>
+    with FluentSchema<ExcludeSchema<O>, O> {
+  ExcludeSchema(this.inner, this.condition);
+
+  /// The wrapped schema.
+  final Schema<O> inner;
+
+  /// When it applies to the raw object, the key is left out.
+  final ExcludeWhen condition;
+
+  /// The conditions of every [ExcludeSchema] in [schema] and the
+  /// wrappers around it. Empty when there is none.
+  static List<ExcludeWhen> conditionsOf(Schema<Object?> schema) {
+    List<ExcludeWhen> found = <ExcludeWhen>[];
+    Schema<Object?> current = schema;
+    while (true) {
+      if (current is ExcludeSchema) {
+        found.add(current.condition);
+        current = current.inner;
+      } else if (current is OptionalSchema) {
+        current = current.inner;
+      } else if (current is NullableSchema) {
+        current = current.inner;
+      } else if (current is DefaultSchema) {
+        current = current.inner;
+      } else if (current is TransformSchema) {
+        current = current.inner;
+      } else {
+        return found;
+      }
+    }
+  }
+
+  @override
+  bool get isOptional {
+    return inner.isOptional;
+  }
+
+  @override
+  bool get isAsync {
+    return super.isAsync || inner.isAsync;
+  }
+
+  @override
+  Object? parseValue(Object? input, ParseState state, List<Object> path) {
+    int before = state.issues.length;
+    Object? output = inner.parseValue(input, state, path);
+    return runRules(output, before, state, path);
+  }
+
+  @override
+  Future<Object?> parseValueAsync(
+    Object? input,
+    ParseState state,
+    List<Object> path,
+  ) async {
+    int before = state.issues.length;
+    Object? output = await inner.parseValueAsync(input, state, path);
+    return runRulesAsync(output, before, state, path);
+  }
+
+  @override
+  Object? parseType(Object? input, ParseState state, List<Object> path) {
+    return inner.parseType(input, state, path);
+  }
+
+  @override
+  Map<String, dynamic> jsonSchemaBase() {
+    return inner.toJsonSchema();
+  }
+
+  @override
+  ExcludeSchema<O> copySchema() {
+    return copyBaseInto(ExcludeSchema<O>(inner, condition));
+  }
+}

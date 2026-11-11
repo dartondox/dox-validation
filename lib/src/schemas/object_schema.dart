@@ -7,6 +7,7 @@ import '../core/message_resolver.dart';
 import '../core/parse_state.dart';
 import '../core/schema.dart';
 import '../core/sentinels.dart';
+import '../dto/dto_annotations.dart';
 import 'wrapper_schemas.dart';
 
 /// `isAsync` per schema. A schema does not change after it is built,
@@ -130,6 +131,7 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
     int before = state.issues.length;
     if (_reordered) ConvertedValues.track(state, path, output);
     for (MapEntry<String, Schema<Object?>> entry in _checkOrder) {
+      if (_excludes.isNotEmpty && _excluded(input, entry.key)) continue;
       Object? value = entry.value.parseValue(
         _read(input, entry.key),
         state,
@@ -156,6 +158,7 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
     int before = state.issues.length;
     if (_reordered) ConvertedValues.track(state, path, output);
     for (MapEntry<String, Schema<Object?>> entry in _checkOrder) {
+      if (_excludes.isNotEmpty && _excluded(input, entry.key)) continue;
       Object? value = await entry.value.parseValueAsync(
         _read(input, entry.key),
         state,
@@ -166,6 +169,29 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
     if (_reordered) output = _inShapeOrder(output, state, path, before);
     _unknown(input, output, state, path);
     return output;
+  }
+
+  /// The `excludeIf` / `excludeUnless` conditions of each field that has
+  /// one. Empty for a plain object, so it pays nothing.
+  late final Map<String, List<ExcludeWhen>> _excludes = _findExcludes();
+
+  Map<String, List<ExcludeWhen>> _findExcludes() {
+    Map<String, List<ExcludeWhen>> found = <String, List<ExcludeWhen>>{};
+    for (MapEntry<String, Schema<Object?>> entry in shape.entries) {
+      List<ExcludeWhen> conditions = ExcludeSchema.conditionsOf(entry.value);
+      if (conditions.isNotEmpty) found[entry.key] = conditions;
+    }
+    return found;
+  }
+
+  /// `true` when the field [key] is left out. [input] is the raw object.
+  bool _excluded(Map<dynamic, dynamic> input, String key) {
+    List<ExcludeWhen>? conditions = _excludes[key];
+    if (conditions == null) return false;
+    for (ExcludeWhen condition in conditions) {
+      if (condition.appliesTo(input)) return true;
+    }
+    return false;
   }
 
   /// The fields with a `requiredIf` / `requiredWith` rule come last, so
@@ -308,7 +334,8 @@ class ObjectSchema extends BaseSchema<Map<String, dynamic>>
     List<String> required = <String>[];
     for (MapEntry<String, Schema<Object?>> entry in shape.entries) {
       properties[entry.key] = entry.value.toJsonSchema();
-      if (!entry.value.isOptional) {
+      // a field with `excludeIf` can be left out, so it is not required
+      if (!entry.value.isOptional && !_excludes.containsKey(entry.key)) {
         required.add(entry.key);
       }
     }

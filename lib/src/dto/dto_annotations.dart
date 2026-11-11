@@ -726,6 +726,15 @@ class ProhibitedIf extends RequiredWhen {
 // Exclude
 // ---------------------------------------------------------------------------
 
+/// Base of [ExcludeIf] and [ExcludeUnless]. The fluent `.excludeIf()` and
+/// `.excludeUnless()` use them too.
+abstract class ExcludeWhen {
+  const ExcludeWhen();
+
+  /// `true` when the field is skipped. [parent] is the raw input object.
+  bool appliesTo(Object? parent);
+}
+
 /// Skip the field when the key [other] has [value]:
 /// `@ExcludeIf('type', 'person')`. Laravel `exclude_if`. Then no check of
 /// the field runs, and it gets its default (or `null`, or
@@ -733,7 +742,7 @@ class ProhibitedIf extends RequiredWhen {
 /// the field is not skipped. [other] is read from the raw input and
 /// matches like in [RequiredIf]. Use it on a nullable field, a `Maybe`
 /// field or a field with a default.
-class ExcludeIf {
+class ExcludeIf extends ExcludeWhen {
   const ExcludeIf(this.other, this.value);
 
   final String other;
@@ -741,7 +750,7 @@ class ExcludeIf {
   /// One value, or a list of values (any of them).
   final Object? value;
 
-  /// `true` when the field is skipped. [parent] is the raw input object.
+  @override
   bool appliesTo(Object? parent) {
     if (parent is! Map || !parent.containsKey(other)) return false;
     return RequiredWhen.matches(
@@ -755,7 +764,7 @@ class ExcludeIf {
 /// `@ExcludeUnless('type', 'company')`. Laravel `exclude_unless`. A
 /// missing [other] counts as `null`, so the field is skipped then.
 /// See [ExcludeIf].
-class ExcludeUnless {
+class ExcludeUnless extends ExcludeWhen {
   const ExcludeUnless(this.other, this.value);
 
   final String other;
@@ -763,7 +772,7 @@ class ExcludeUnless {
   /// One value, or a list of values (any of them).
   final Object? value;
 
-  /// `true` when the field is skipped. [parent] is the raw input object.
+  @override
   bool appliesTo(Object? parent) {
     return !RequiredWhen.matches(
       RequiredWhen.read(parent, other),
