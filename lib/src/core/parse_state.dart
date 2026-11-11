@@ -53,7 +53,7 @@ class ParseState {
     String? message,
   }) {
     Map<String, Object?> allParams = <String, Object?>{
-      'field': fieldName(path),
+      'field': resolver.attributeName(path) ?? fieldName(path),
       'value': value is Undefined ? null : value,
       ...params,
     };

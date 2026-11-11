@@ -75,6 +75,36 @@ mixin FluentSchema<S extends BaseSchema<O>, O> on BaseSchema<O> {
     return use(Confirmed<O>(other: other, message: message));
   }
 
+  /// Must not equal the key [other] in the same object. Laravel
+  /// `different`.
+  S different(String other, {String? message}) {
+    return use(Different<O>(other, message: message));
+  }
+
+  /// Must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`. Laravel
+  /// `accepted`.
+  S accepted({String? message}) {
+    return use(Accepted<O>(message: message));
+  }
+
+  /// Must be `false`, `0`, `'0'`, `'false'`, `'no'` or `'off'`. Laravel
+  /// `declined`.
+  S declined({String? message}) {
+    return use(Declined<O>(message: message));
+  }
+
+  /// Must be missing or empty. Use it after `.optional()`. Laravel
+  /// `prohibited`.
+  S prohibited({String? message}) {
+    return use(Prohibited<O>(message: message));
+  }
+
+  /// Must be missing or empty when the key [other] in the same object
+  /// has [value]. Use it after `.optional()`. Laravel `prohibited_if`.
+  S prohibitedIf(String other, Object? value, {String? message}) {
+    return use(ProhibitedIf<O>(other, value, message: message));
+  }
+
   /// Add a description for docs (JSON Schema `description`).
   S describe(String text) {
     BaseSchema<O> next = copySchema();

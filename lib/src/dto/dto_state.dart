@@ -71,6 +71,8 @@ class DtoState extends ParseState {
   /// - [messages] (the DTO that checks the field), by the dotted path
   ///   from that DTO, like Laravel, then with `*` for list indexes
   ///   (`tags.*.required`). In a nested DTO this is `city.required`.
+  ///   At each step the Dox code is tried first, then its Laravel name
+  ///   (see [IssueCodes.laravel]), so `name.min` works too.
   /// - the messages of each outer DTO, by the path from it
   ///   (`address.city.required` in the root DTO).
   /// - [messages] by the last key (`city.required`), then by the code
@@ -101,8 +103,11 @@ class DtoState extends ParseState {
         }
       }
       text ??=
-          messages['${ParseState.fieldName(full)}.$code'] ?? messages[code];
+          MessageResolver.find(messages, ParseState.fieldName(full), code) ??
+          MessageResolver.find(messages, '', code);
     }
+    String? name = _attribute(full);
+    if (name != null) params = <String, Object?>{...params, 'field': name};
     addIssue(
       path: full,
       code: code,
@@ -150,8 +155,32 @@ class DtoState extends ParseState {
   ) {
     if (messages.isEmpty) return null;
     List<Object> rest = full.sublist(skip);
-    return messages['${rest.join('.')}.$code'] ??
-        messages['${_wildcard(rest)}.$code'];
+    return MessageResolver.find(messages, rest.join('.'), code) ??
+        MessageResolver.find(messages, _wildcard(rest), code);
+  }
+
+  /// `@Dto(attributes:)` of each DTO in this check, by its path with `*`
+  /// for list indexes. Filled by [attributes].
+  Map<String, Map<String, String>>? _names;
+
+  /// Use [names] (the `@Dto(attributes:)` of a DTO) for `{field}` in the
+  /// messages of the DTO at [path]. The generated code calls it.
+  void attributes(List<Object> path, Map<String, String> names) {
+    (_names ??= <String, Map<String, String>>{})[_wildcard(path)] = names;
+  }
+
+  /// The `@Dto(attributes:)` name of [full]: the DTO that checks it
+  /// first, then each outer DTO. `null` when there is none.
+  String? _attribute(List<Object> full) {
+    Map<String, Map<String, String>>? all = _names;
+    if (all == null) return null;
+    for (int i = full.length - 1; i >= 0; i--) {
+      Map<String, String>? names = all[_wildcard(full.sublist(0, i))];
+      if (names == null) continue;
+      String? name = MessageResolver.nameIn(names, full.sublist(i));
+      if (name != null) return name;
+    }
+    return null;
   }
 
   /// [path] as dotted text with `*` for each list index.
@@ -191,7 +220,8 @@ class DtoState extends ParseState {
     if (value is! Undefined && !RequiredWhen.isEmpty(value)) return;
     if (_hasIssue(path, key)) return;
     // the other fields as the app gets them, not the raw input
-    if (!rule.appliesTo(ConvertedValues.parent(this, path, input))) return;
+    Object? parent = ConvertedValues.parent(this, path, input);
+    if (!rule.appliesToField(parent, input, key)) return;
     RequiredWhenIssue issue = RequiredWhenIssue(rule);
     fail(
       path,
@@ -336,14 +366,18 @@ class DtoState extends ParseState {
 
   /// `map[key]`, or [undefined] when the key is missing.
   /// [emptyToNull] (`@Dto(emptyStringsToNull: true)`): `""` gives `null`.
+  /// With [trim] (`@Dto(trim: true)`) blank text gives `null` too.
   Object? read(
     Map<dynamic, dynamic> map,
     String key, {
     bool emptyToNull = false,
+    bool trim = false,
   }) {
     Object? value = map[key];
     if (value == null && !map.containsKey(key)) return undefined;
-    if (emptyToNull && value == '') return null;
+    if (emptyToNull && value is String) {
+      if (value.isEmpty || (trim && value.trim().isEmpty)) return null;
+    }
     return value;
   }
 
@@ -389,12 +423,14 @@ class DtoState extends ParseState {
   }
 
   /// An `int`. JSON: a whole number (`18` or `18.0`). Text: `"18"`.
+  /// [coerce] (`@Dto(coerce: true)`): JSON takes `"18"` too.
   Object? integer(
     Object? raw,
     List<Object> path,
     Object key,
-    Map<String, String> m,
-  ) {
+    Map<String, String> m, {
+    bool coerce = false,
+  }) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
     if (one is int) return _keep(path, key, one);
@@ -403,7 +439,7 @@ class DtoState extends ParseState {
     }
     if (one is String) {
       if (one.isEmpty) return undefined;
-      if (text) {
+      if (text || coerce) {
         int? value = int.tryParse(one, radix: 10);
         if (value != null) return _keep(path, key, value);
       }
@@ -419,18 +455,20 @@ class DtoState extends ParseState {
   }
 
   /// A `double`. JSON: any number. Text: `"4.5"`.
+  /// [coerce] (`@Dto(coerce: true)`): JSON takes `"4.5"` too.
   Object? decimal(
     Object? raw,
     List<Object> path,
     Object key,
-    Map<String, String> m,
-  ) {
+    Map<String, String> m, {
+    bool coerce = false,
+  }) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
     if (one is num && one.isFinite) return _keep(path, key, one.toDouble());
     if (one is String) {
       if (one.isEmpty) return undefined;
-      if (text) {
+      if (text || coerce) {
         double? value = double.tryParse(one);
         if (value != null && value.isFinite) return _keep(path, key, value);
       }
@@ -446,18 +484,20 @@ class DtoState extends ParseState {
   }
 
   /// A `num`. JSON: any number. Text: `"18"` (an int) or `"4.5"`.
+  /// [coerce] (`@Dto(coerce: true)`): JSON takes the text too.
   Object? number(
     Object? raw,
     List<Object> path,
     Object key,
-    Map<String, String> m,
-  ) {
+    Map<String, String> m, {
+    bool coerce = false,
+  }) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
     if (one is num && one.isFinite) return _keep(path, key, one);
     if (one is String) {
       if (one.isEmpty) return undefined;
-      if (text) {
+      if (text || coerce) {
         num? value = int.tryParse(one, radix: 10) ?? double.tryParse(one);
         if (value != null && value.isFinite) return _keep(path, key, value);
       }
@@ -473,19 +513,22 @@ class DtoState extends ParseState {
   }
 
   /// A `bool`. JSON: `true` / `false`. Text: `true`, `1`, `yes`, `on` and
-  /// the opposites, any case.
+  /// the opposites, any case. [coerce] (`@Dto(coerce: true)`): JSON takes
+  /// that text and the numbers `1` and `0` too.
   Object? boolean(
     Object? raw,
     List<Object> path,
     Object key,
-    Map<String, String> m,
-  ) {
+    Map<String, String> m, {
+    bool coerce = false,
+  }) {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
     if (one is bool) return _keep(path, key, one);
+    if (coerce && (one == 1 || one == 0)) return _keep(path, key, one == 1);
     if (one is String) {
       if (one.isEmpty) return undefined;
-      if (text) {
+      if (text || coerce) {
         if (ListText.isTrueWord(one)) return _keep(path, key, true);
         if (ListText.isFalseWord(one)) return _keep(path, key, false);
       }

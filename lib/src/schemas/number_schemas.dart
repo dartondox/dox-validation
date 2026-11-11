@@ -5,6 +5,7 @@ import '../core/parse_state.dart';
 import '../core/schema.dart';
 import '../core/sentinels.dart';
 import '../rules/database_rules.dart';
+import '../rules/field_rules.dart';
 import '../rules/number_rules.dart';
 
 /// Shared number methods for [IntSchema] and [NumSchema].
@@ -81,6 +82,27 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
   /// Less than [value].
   S lt(num value, {String? message}) {
     return use(LessThanRule<N>(value, message: message));
+  }
+
+  /// Greater than the key [other] in the same object. Laravel `gt:field`.
+  /// A missing [other] fails.
+  S gtField(String other, {String? message}) {
+    return use(GreaterThanField<N>(other, message: message));
+  }
+
+  /// At least the key [other] in the same object. Laravel `gte:field`.
+  S gteField(String other, {String? message}) {
+    return use(GreaterThanOrEqualField<N>(other, message: message));
+  }
+
+  /// Less than the key [other] in the same object. Laravel `lt:field`.
+  S ltField(String other, {String? message}) {
+    return use(LessThanField<N>(other, message: message));
+  }
+
+  /// At most the key [other] in the same object. Laravel `lte:field`.
+  S lteField(String other, {String? message}) {
+    return use(LessThanOrEqualField<N>(other, message: message));
   }
 
   /// Greater than zero.

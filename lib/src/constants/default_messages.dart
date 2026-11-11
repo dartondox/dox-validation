@@ -96,4 +96,20 @@ class DefaultMessages {
   static const String dateFormat = 'The {field} must match the format {format}';
   static const String hexColor = 'The {field} must be a hex color like #1a2b3c';
   static const String password = 'The {field} must have {rules}';
+
+  static const String requiredUnless =
+      'The {field} is required unless {other} is {values}';
+  static const String requiredWithout =
+      'The {field} is required when {others} is not present';
+  static const String requiredWithoutAll =
+      'The {field} is required when none of {others} are present';
+  static const String filled = 'The {field} must have a value';
+  static const String present = 'The {field} must be present';
+  static const String accepted = 'The {field} must be accepted';
+  static const String declined = 'The {field} must be declined';
+  static const String prohibited = 'The {field} is prohibited';
+  static const String prohibitedIf =
+      'The {field} is prohibited when {other} is {values}';
+  static const String different = 'The {field} and {other} must be different';
+  static const String ulid = 'The {field} must be a valid ULID';
 }

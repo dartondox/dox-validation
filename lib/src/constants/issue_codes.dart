@@ -73,4 +73,39 @@ class IssueCodes {
   static const String hexColor = 'hex_color';
   static const String dateFormat = 'date_format';
   static const String password = 'password';
+
+  static const String requiredUnless = 'required_unless';
+  static const String requiredWithout = 'required_without';
+  static const String requiredWithoutAll = 'required_without_all';
+  static const String filled = 'filled';
+  static const String present = 'present';
+  static const String accepted = 'accepted';
+  static const String declined = 'declined';
+  static const String prohibited = 'prohibited';
+  static const String prohibitedIf = 'prohibited_if';
+  static const String different = 'different';
+  static const String ulid = 'ulid';
+
+  /// The Laravel rule name of each code that has another name in Dox.
+  /// Only the lookup of custom messages uses it: `name.min` finds a
+  /// message for the `min_length` issue of `name`. The issue code stays
+  /// `min_length`. A key with the Dox code wins over the Laravel name.
+  static const Map<String, String> laravel = <String, String>{
+    minLength: 'min',
+    maxLength: 'max',
+    length: 'size',
+    lengthBetween: 'between',
+    startWith: 'starts_with',
+    endWith: 'ends_with',
+    alphaNumeric: 'alpha_num',
+    greaterThan: 'gt',
+    lessThan: 'lt',
+    minItems: 'min',
+    maxItems: 'max',
+    uniqueItems: 'distinct',
+    minSize: 'min',
+    maxSize: 'max',
+    mimeTypes: 'mimetypes',
+    datetime: 'date',
+  };
 }

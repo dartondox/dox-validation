@@ -657,6 +657,44 @@ class RequiredWhenIssue {
         <String, Object?>{'others': rule.others.join(' or ')},
       );
     }
+    if (rule is RequiredUnless) {
+      return RequiredWhenIssue._(
+        IssueCodes.requiredUnless,
+        DefaultMessages.requiredUnless,
+        <String, Object?>{
+          'other': rule.other,
+          'values': _names(rule.values).join(' or '),
+        },
+      );
+    }
+    if (rule is RequiredWithout) {
+      return RequiredWhenIssue._(
+        IssueCodes.requiredWithout,
+        DefaultMessages.requiredWithout,
+        <String, Object?>{'others': rule.others.join(' or ')},
+      );
+    }
+    if (rule is RequiredWithoutAll) {
+      return RequiredWhenIssue._(
+        IssueCodes.requiredWithoutAll,
+        DefaultMessages.requiredWithoutAll,
+        <String, Object?>{'others': rule.others.join(' or ')},
+      );
+    }
+    if (rule is Filled) {
+      return RequiredWhenIssue._(
+        IssueCodes.filled,
+        DefaultMessages.filled,
+        const <String, Object?>{},
+      );
+    }
+    if (rule is Present) {
+      return RequiredWhenIssue._(
+        IssueCodes.present,
+        DefaultMessages.present,
+        const <String, Object?>{},
+      );
+    }
     return RequiredWhenIssue._(
       IssueCodes.required,
       DefaultMessages.required,
@@ -666,7 +704,336 @@ class RequiredWhenIssue {
 
   RequiredWhenIssue._(this.code, this.fallback, this.params);
 
+  /// Each value as text: an enum value gives its name.
+  static List<Object?> _names(List<Object?> values) {
+    return <Object?>[
+      for (Object? value in values) value is Enum ? value.name : value,
+    ];
+  }
+
   final String code;
   final String fallback;
   final Map<String, Object?> params;
+}
+
+/// The value must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`:
+/// `@Accepted()`. Laravel `accepted`. For a "terms" check box. Use it on
+/// a `bool` field with no default, so a missing value fails too.
+class Accepted<T> extends Rule<T> {
+  const Accepted({super.message});
+
+  static const List<Object> _words = <Object>[
+    true,
+    1,
+    '1',
+    'true',
+    'yes',
+    'on',
+  ];
+
+  @override
+  String get name {
+    return IssueCodes.accepted;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.accepted;
+  }
+
+  @override
+  bool check(T value, RuleContext context) {
+    return _words.contains(value);
+  }
+}
+
+/// The value must be `false`, `0`, `'0'`, `'false'`, `'no'` or `'off'`:
+/// `@Declined()`. Laravel `declined`.
+class Declined<T> extends Rule<T> {
+  const Declined({super.message});
+
+  static const List<Object> _words = <Object>[
+    false,
+    0,
+    '0',
+    'false',
+    'no',
+    'off',
+  ];
+
+  @override
+  String get name {
+    return IssueCodes.declined;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.declined;
+  }
+
+  @override
+  bool check(T value, RuleContext context) {
+    return _words.contains(value);
+  }
+}
+
+/// The field must be missing or empty: `@Prohibited()`.
+/// Laravel `prohibited`. Empty: `null`, blank text, an empty list or map.
+class Prohibited<T> extends Rule<T> {
+  const Prohibited({super.message});
+
+  @override
+  String get name {
+    return IssueCodes.prohibited;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.prohibited;
+  }
+
+  @override
+  bool check(T value, RuleContext context) {
+    return RequiredWhen.isEmpty(value);
+  }
+}
+
+/// The field must be missing or empty when the key [other] has [value]:
+/// `@ProhibitedIf('type', 'guest')`. Laravel `prohibited_if`. [other] is
+/// read from the raw input and matches like in [RequiredIf].
+class ProhibitedIf<T> extends Rule<T> {
+  const ProhibitedIf(this.other, this.value, {super.message});
+
+  final String other;
+
+  /// One value, or a list of values (any of them).
+  final Object? value;
+
+  @override
+  String get name {
+    return IssueCodes.prohibitedIf;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.prohibitedIf;
+  }
+
+  @override
+  Map<String, Object?> get params {
+    return <String, Object?>{
+      'other': other,
+      'values': RequiredWhenIssue._names(RequiredWhen.listOf(value))
+          .join(' or '),
+    };
+  }
+
+  @override
+  bool check(T value, RuleContext context) {
+    List<Object> path = context.path;
+    Object? parent = DataPath.read(
+      context.root,
+      path.isEmpty ? path : path.sublist(0, path.length - 1),
+    );
+    Object? raw = RequiredWhen.read(parent, other);
+    if (!RequiredWhen.matches(raw, RequiredWhen.listOf(this.value))) {
+      return true;
+    }
+    return RequiredWhen.isEmpty(value);
+  }
+}
+
+/// The value must not equal the key [other] in the same object:
+/// `@Different('old_password')`. Laravel `different`. It compares the
+/// raw input like [Same]. A missing [other] passes.
+class Different<T> extends Rule<T> {
+  const Different(this.other, {super.message});
+
+  /// A key in the same object.
+  final String other;
+
+  @override
+  String get name {
+    return IssueCodes.different;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.different;
+  }
+
+  @override
+  Map<String, Object?> get params {
+    return <String, Object?>{'other': other};
+  }
+
+  @override
+  bool check(T value, RuleContext context) {
+    return !Same.matches(Same.rawOf(context), context.sibling(other));
+  }
+}
+
+final RegExp _ulid = RegExp(
+  r'^[0-7][0-9A-HJKMNP-TV-Z]{25}$',
+  caseSensitive: false,
+);
+
+/// The text must be a ULID: 26 Crockford base32 characters, any case.
+/// `@Ulid()`. Laravel `ulid`.
+class Ulid extends Rule<String> {
+  const Ulid({super.message});
+
+  @override
+  String get name {
+    return IssueCodes.ulid;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.ulid;
+  }
+
+  @override
+  bool check(String value, RuleContext context) {
+    return _ulid.hasMatch(value);
+  }
+
+  @override
+  Map<String, dynamic> toJsonSchema() {
+    return <String, dynamic>{
+      'pattern': '^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}\$',
+    };
+  }
+}
+
+/// Base of the rules that compare a number with the key [other] in the
+/// same object, like Laravel `gt:field`. The raw [other] must be a number
+/// (or number text); else the check fails, like Laravel.
+abstract class FieldCompare<T extends num> extends Rule<T> {
+  const FieldCompare(this.other, {super.message});
+
+  /// A key in the same object.
+  final String other;
+
+  /// `true` when [value] passes against [other].
+  bool compare(num value, num other);
+
+  @override
+  bool check(T value, RuleContext context) {
+    Object? raw = context.sibling(other);
+    if (raw is List) raw = raw.isEmpty ? null : raw.last;
+    num? number = raw is num
+        ? raw
+        : raw is String
+        ? num.tryParse(raw.trim())
+        : null;
+    if (number == null || !number.isFinite) return false;
+    return compare(value, number);
+  }
+}
+
+/// Greater than the key [other]: `@GreaterThanField('min_price')`.
+/// Laravel `gt:field`. The code is `greater_than`.
+class GreaterThanField<T extends num> extends FieldCompare<T> {
+  const GreaterThanField(super.other, {super.message});
+
+  @override
+  String get name {
+    return IssueCodes.greaterThan;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.greaterThan;
+  }
+
+  @override
+  Map<String, Object?> get params {
+    return <String, Object?>{'min': other};
+  }
+
+  @override
+  bool compare(num value, num other) {
+    return value > other;
+  }
+}
+
+/// Greater than or equal to the key [other]:
+/// `@GreaterThanOrEqualField('min_price')`. Laravel `gte:field`.
+/// The code is `min`.
+class GreaterThanOrEqualField<T extends num> extends FieldCompare<T> {
+  const GreaterThanOrEqualField(super.other, {super.message});
+
+  @override
+  String get name {
+    return IssueCodes.min;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.min;
+  }
+
+  @override
+  Map<String, Object?> get params {
+    return <String, Object?>{'min': other};
+  }
+
+  @override
+  bool compare(num value, num other) {
+    return value >= other;
+  }
+}
+
+/// Less than the key [other]: `@LessThanField('max_price')`.
+/// Laravel `lt:field`. The code is `less_than`.
+class LessThanField<T extends num> extends FieldCompare<T> {
+  const LessThanField(super.other, {super.message});
+
+  @override
+  String get name {
+    return IssueCodes.lessThan;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.lessThan;
+  }
+
+  @override
+  Map<String, Object?> get params {
+    return <String, Object?>{'max': other};
+  }
+
+  @override
+  bool compare(num value, num other) {
+    return value < other;
+  }
+}
+
+/// Less than or equal to the key [other]:
+/// `@LessThanOrEqualField('max_price')`. Laravel `lte:field`.
+/// The code is `max`.
+class LessThanOrEqualField<T extends num> extends FieldCompare<T> {
+  const LessThanOrEqualField(super.other, {super.message});
+
+  @override
+  String get name {
+    return IssueCodes.max;
+  }
+
+  @override
+  String get defaultMessage {
+    return DefaultMessages.max;
+  }
+
+  @override
+  Map<String, Object?> get params {
+    return <String, Object?>{'max': other};
+  }
+
+  @override
+  bool compare(num value, num other) {
+    return value <= other;
+  }
 }
