@@ -1,5 +1,10 @@
 ## Unreleased
 
+- New: `ValidationFlags`, opt-in behaviors that are all off by default. Set them with `Validator.flags = const ValidationFlags(...)`. `ValidationFlags.all()` turns every one on. Set them in each isolate, like in a provider's `setup()`.
+  - `emptyStringsToNull`: fluent schemas turn each `""` in the input into `null` before they check it, also in nested maps and lists. So `""` fails a required field.
+  - `unicodeAlpha`: `alpha`, `alphaNumeric` and `alphaDash` accept Unicode letters and marks (like `José`), and Unicode digits where digits are allowed. It works for fluent schemas and DTOs.
+  - `shortInMessage`: the default `in` message is `The selected {field} is invalid`, with no list of values.
+- New: `AlphaRule` and `DefaultMessages.inListShort`. `Patterns.alpha`, `Patterns.alphaDash` and `Patterns.alphaNumeric` are now getters that follow `Validator.flags`.
 - Faster: a DTO with no `@RequiredIf` or `@RequiredWith` (and no nested DTO with them) no longer keeps each converted value. Needs a dox_builder that knows it. Code from an older dox_builder works as before.
 - New: `DtoSchema.usesRequiredWhen` and `DtoState.keepValues`, used by the generated code. `DtoState(keepValues: true)` is the default, so nothing changes for code that makes a `DtoState`.
 

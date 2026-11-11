@@ -29,6 +29,7 @@ export 'src/core/refine_rules.dart';
 export 'src/core/rule.dart';
 export 'src/core/schema.dart';
 export 'src/core/sentinels.dart';
+export 'src/core/validation_flags.dart';
 export 'src/core/validation_exception.dart';
 export 'src/dto/dto_annotations.dart';
 export 'src/dto/dto_schema.dart';

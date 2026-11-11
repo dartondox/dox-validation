@@ -1,3 +1,5 @@
+import '../constants/default_messages.dart';
+import '../validator.dart';
 import 'issue.dart';
 import 'message_resolver.dart';
 import 'sentinels.dart';
@@ -55,6 +57,9 @@ class ParseState {
       'value': value is Undefined ? null : value,
       ...params,
     };
+    if (Validator.flags.shortInMessage && fallback == DefaultMessages.inList) {
+      fallback = DefaultMessages.inListShort;
+    }
     // a message set on the rule wins over the resolver
     String text = message != null
         ? resolver.format(message, allParams)

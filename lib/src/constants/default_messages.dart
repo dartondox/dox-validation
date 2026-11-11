@@ -22,6 +22,9 @@ class DefaultMessages {
       'The {field} is either invalid or unsupported extension';
   static const String inList =
       'The selected {field} is invalid. Valid options are {values}';
+
+  /// The `in` message when `ValidationFlags.shortInMessage` is on.
+  static const String inListShort = 'The selected {field} is invalid';
   static const String notIn = 'The {field} field cannot be {value}';
   static const String literal = 'The {field} must be {expected}';
   static const String union = 'The {field} does not match any allowed type';
