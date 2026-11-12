@@ -258,7 +258,7 @@ class FileSchema extends BaseSchema<FileInput>
     return use(MinSizeRule(bytes, message: message));
   }
 
-  /// One of the file types [types] (extensions, like `pdf`), like
+  /// One of the file types [types] (extensions, like `pdf`).
   /// Same check as [extensions], with the `mimes` code
   /// and message of `@Mimes`.
   FileSchema mimes(List<String> types, {String? message}) {
