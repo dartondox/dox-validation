@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Ships an AI agent skill (dox-validation-guide). Install it in your app with `dart run skills@ get`.
 - Requires Dart 3.14 or newer.
 - New: `ValidationFlags`, opt-in behaviors that are all off by default. Set them with `Validator.flags = const ValidationFlags(...)`. `ValidationFlags.all()` turns every one on. Set them in each isolate, like in a provider's `setup()`.
   - `emptyStringsToNull`: fluent schemas turn each `""` in the input into `null` before they check it, also in nested maps and lists. So `""` fails a required field.
