@@ -90,8 +90,8 @@ class ParseState {
     return resolver.attributeName(path);
   }
 
-  /// `{other}` and `{others}` are keys next to [path]. Show their names,
-  /// like Laravel. [others] are the keys of `{others}`. With no names set,
+  /// `{other}` and `{others}` are keys next to [path]. Show their names.
+  /// [others] are the keys of `{others}`. With no names set,
   /// nothing changes.
   void _otherNames(
     Map<String, Object?> params,

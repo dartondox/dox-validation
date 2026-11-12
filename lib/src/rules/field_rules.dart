@@ -13,9 +13,9 @@ import '../dto/dto_annotations.dart';
 // - in a fluent schema: `v.string().json()`, `v.string().same('password')`
 
 /// The value must equal the key [other] in the same object:
-/// `@Same('password')`. Laravel `same`.
+/// `@Same('password')`.
 ///
-/// It compares the raw input of both keys, like Laravel. So a change
+/// It compares the raw input of both keys. So a change
 /// like `trim()` does not count: `' ab '` matches `' ab '`. Text matches
 /// a number or a bool by text, both ways: `1234` matches `'1234'`.
 class Same<T> extends Rule<T> {
@@ -72,7 +72,7 @@ class Same<T> extends Rule<T> {
 
 /// The key `<field>_confirmation` must have the same value:
 /// `@Confirmed()` on `password` needs `password_confirmation`.
-/// Laravel `confirmed`. Give [other] to use another key.
+/// Give [other] to use another key.
 ///
 /// The error is on this field, not on the confirmation key.
 class Confirmed<T> extends Rule<T> {
@@ -98,7 +98,7 @@ class Confirmed<T> extends Rule<T> {
   }
 }
 
-/// The text must be valid JSON: `@Json()`. Laravel `json`.
+/// The text must be valid JSON: `@Json()`.
 class Json extends Rule<String> {
   const Json({super.message});
 
@@ -131,7 +131,7 @@ class Json extends Rule<String> {
 final RegExp _digits = RegExp(r'^[0-9]+$');
 
 /// The text must be only digits (0-9), exactly [length] of them:
-/// `@Digits(6)`. Laravel `digits`. Use a `String` field, so leading
+/// `@Digits(6)`. Use a `String` field, so leading
 /// zeros are kept.
 class Digits extends Rule<String> {
   const Digits(this.length, {super.message});
@@ -169,8 +169,8 @@ final RegExp _hexColorShort = RegExp(r'^#[0-9a-fA-F]{3}$');
 
 /// The text must be a hex color: `#` and 6 hex digits, like `#1a2b3c`.
 /// Both cases pass. `@HexColor(short: true)` also takes 3 digits (`#abc`).
-/// Laravel `hex_color` takes 3, 4, 6 or 8 digits; this rule is stricter
-/// on purpose, because most apps store `#rrggbb`.
+/// It is strict on purpose (no 4 or 8 digit forms), because most apps
+/// store `#rrggbb`.
 class HexColor extends Rule<String> {
   const HexColor({this.short = false, super.message});
 
@@ -204,7 +204,7 @@ class HexColor extends Rule<String> {
 }
 
 /// The text must be only digits (0-9), from [min] to [max] of them:
-/// `@DigitsBetween(4, 6)`. Laravel `digits_between`.
+/// `@DigitsBetween(4, 6)`.
 class DigitsBetween extends Rule<String> {
   const DigitsBetween(this.min, this.max, {super.message});
 
@@ -240,7 +240,7 @@ class DigitsBetween extends Rule<String> {
 }
 
 /// The text must be a real date in [format]: `@DateFormatted('Y-m-d')`.
-/// Laravel `date_format`. (Not named `DateFormat`, so it does not clash
+/// (Not named `DateFormat`, so it does not clash
 /// with `package:intl`.)
 ///
 /// Format letters, like PHP `date()`:
@@ -259,7 +259,7 @@ class DigitsBetween extends Rule<String> {
 /// - full: `U` (seconds since 1970), `c` (`Y-m-d\TH:i:sP`),
 ///   `r` (`D, d M Y H:i:s O`)
 ///
-/// `j`, `n`, `g`, `G`, `z` and `U` take no leading zero, like Laravel:
+/// `j`, `n`, `g`, `G`, `z` and `U` take no leading zero:
 /// `j/n/Y` rejects `01/02/2024`. `e` and `T` take any name that looks
 /// like a time zone; they do not check that it is a real one.
 ///
@@ -542,8 +542,7 @@ class DateFormatted extends Rule<String> {
   }
 }
 
-/// A strong password, like Laravel
-/// `Password::min(8)->letters()->mixedCase()->numbers()->symbols()`:
+/// A strong password: a minimum length, plus the character kinds you ask for.
 ///
 /// ```dart
 /// @Password(min: 8, mixedCase: true, numbers: true, symbols: true)
@@ -552,7 +551,7 @@ class DateFormatted extends Rule<String> {
 /// v.string().password(min: 8, mixedCase: true, numbers: true)
 /// ```
 /// Letters, numbers and symbols use Unicode classes, so `é` is a letter.
-/// It does not check leaked passwords (Laravel `uncompromised`).
+/// It does not check leaked passwords.
 class Password extends Rule<String> {
   const Password({
     this.min = 8,
@@ -745,7 +744,7 @@ class RequiredWhenIssue {
 }
 
 /// The value must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`:
-/// `@Accepted()`. Laravel `accepted`. For a "terms" check box. Use it on
+/// `@Accepted()`. For a "terms" check box. Use it on
 /// a `bool` field with no default, so a missing value fails too.
 class Accepted<T> extends Rule<T> {
   const Accepted({super.message});
@@ -776,7 +775,7 @@ class Accepted<T> extends Rule<T> {
 }
 
 /// The value must be `false`, `0`, `'0'`, `'false'`, `'no'` or `'off'`:
-/// `@Declined()`. Laravel `declined`.
+/// `@Declined()`.
 class Declined<T> extends Rule<T> {
   const Declined({super.message});
 
@@ -806,7 +805,7 @@ class Declined<T> extends Rule<T> {
 }
 
 /// The value must not equal the key [other] in the same object:
-/// `@Different('old_password')`. Laravel `different`. It compares the
+/// `@Different('old_password')`. It compares the
 /// raw input like [Same]. A missing [other] passes.
 class Different<T> extends Rule<T> {
   const Different(this.other, {super.message});
@@ -841,7 +840,7 @@ final RegExp _ulid = RegExp(
 );
 
 /// The text must be a ULID: 26 Crockford base32 characters, any case.
-/// `@Ulid()`. Laravel `ulid`.
+/// `@Ulid()`.
 class Ulid extends Rule<String> {
   const Ulid({super.message});
 
@@ -869,8 +868,8 @@ class Ulid extends Rule<String> {
 }
 
 /// Base of the rules that compare a number with the key [other] in the
-/// same object, like Laravel `gt:field`. The raw [other] must be a number
-/// (or number text); else the check fails, like Laravel.
+/// same object. The raw [other] must be a number
+/// (or number text); else the check fails.
 abstract class FieldCompare<T extends num> extends Rule<T> {
   const FieldCompare(this.other, {super.message});
 
@@ -895,7 +894,7 @@ abstract class FieldCompare<T extends num> extends Rule<T> {
 }
 
 /// Greater than the key [other]: `@GreaterThanField('min_price')`.
-/// Laravel `gt:field`. The code is `greater_than`.
+/// The code is `greater_than`.
 class GreaterThanField<T extends num> extends FieldCompare<T> {
   const GreaterThanField(super.other, {super.message});
 
@@ -921,7 +920,7 @@ class GreaterThanField<T extends num> extends FieldCompare<T> {
 }
 
 /// Greater than or equal to the key [other]:
-/// `@GreaterThanOrEqualField('min_price')`. Laravel `gte:field`.
+/// `@GreaterThanOrEqualField('min_price')`.
 /// The code is `min`.
 class GreaterThanOrEqualField<T extends num> extends FieldCompare<T> {
   const GreaterThanOrEqualField(super.other, {super.message});
@@ -948,7 +947,7 @@ class GreaterThanOrEqualField<T extends num> extends FieldCompare<T> {
 }
 
 /// Less than the key [other]: `@LessThanField('max_price')`.
-/// Laravel `lt:field`. The code is `less_than`.
+/// The code is `less_than`.
 class LessThanField<T extends num> extends FieldCompare<T> {
   const LessThanField(super.other, {super.message});
 
@@ -974,7 +973,7 @@ class LessThanField<T extends num> extends FieldCompare<T> {
 }
 
 /// Less than or equal to the key [other]:
-/// `@LessThanOrEqualField('max_price')`. Laravel `lte:field`.
+/// `@LessThanOrEqualField('max_price')`.
 /// The code is `max`.
 class LessThanOrEqualField<T extends num> extends FieldCompare<T> {
   const LessThanOrEqualField(super.other, {super.message});

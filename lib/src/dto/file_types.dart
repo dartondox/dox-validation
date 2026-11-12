@@ -324,7 +324,7 @@ class ImageSize {
   }
 
   /// `true` when [file] is an image whose size fits every limit given.
-  /// [ratio] is width / height, like `3 / 2`. Like Laravel, a ratio
+  /// [ratio] is width / height, like `3 / 2`. A ratio
   /// passes when it is off by less than one pixel.
   static bool fits(
     FileInput file, {

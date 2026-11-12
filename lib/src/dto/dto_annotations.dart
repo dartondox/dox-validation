@@ -59,8 +59,7 @@ class Dto {
   /// Messages by `code` or by `key.code`, like `email.required`.
   final Map<String, String> messages;
 
-  /// `true`: a key with `""` is read as `null`, like Laravel's
-  /// `ConvertEmptyStringsToNull`. So `{"note": ""}` clears a
+  /// `true`: a key with `""` is read as `null`. So `{"note": ""}` clears a
   /// `Maybe<String?>` field (present, `null`) instead of leaving it out.
   /// A required field still gets `required`.
   ///
@@ -69,7 +68,7 @@ class Dto {
   final bool emptyStringsToNull;
 
   /// `true`: every `String` field (and the text items of its lists and
-  /// maps) is trimmed, like Laravel's `TrimStrings`. So `"   "` counts as
+  /// maps) is trimmed. So `"   "` counts as
   /// missing and fails `required`. It is `@Trim()` on each text field.
   /// A nested DTO uses its own `@Dto(trim:)`.
   final bool trim;
@@ -82,8 +81,7 @@ class Dto {
   final bool coerce;
 
   /// The names to show for `{field}` in the messages of this DTO, by
-  /// input key: `{'first_name': 'first name'}`. Like Laravel's custom
-  /// attributes. Keys are looked up like message keys: the dotted path
+  /// input key: `{'first_name': 'first name'}`. Keys are looked up like message keys: the dotted path
   /// from this DTO, then with `*` for list indexes, then the field name.
   /// A key with no name shows the key, as before.
   final Map<String, String> attributes;
@@ -570,7 +568,7 @@ class RequiredWith extends RequiredWhen {
 
 /// Required unless the key [other] has [value]:
 /// `@RequiredUnless('type', 'guest')`. Give a list for many values.
-/// Laravel `required_unless`. A missing [other] counts as `null`, so the
+/// A missing [other] counts as `null`, so the
 /// field is required then. [other] matches like in [RequiredIf].
 class RequiredUnless extends RequiredWhen {
   const RequiredUnless(this.other, this.value, {super.message});
@@ -592,7 +590,7 @@ class RequiredUnless extends RequiredWhen {
 }
 
 /// Required when any of the keys [others] is missing or empty:
-/// `@RequiredWithout(['email'])`. Laravel `required_without`.
+/// `@RequiredWithout(['email'])`.
 class RequiredWithout extends RequiredWhen {
   const RequiredWithout(this.others, {super.message});
 
@@ -609,7 +607,6 @@ class RequiredWithout extends RequiredWhen {
 
 /// Required when all of the keys [others] are missing or empty:
 /// `@RequiredWithoutAll(['email', 'phone'])`.
-/// Laravel `required_without_all`.
 class RequiredWithoutAll extends RequiredWhen {
   const RequiredWithoutAll(this.others, {super.message});
 
@@ -625,7 +622,7 @@ class RequiredWithoutAll extends RequiredWhen {
 }
 
 /// When the key is sent, it must have a value: not `null`, not blank
-/// text, not an empty list. A missing key passes. Laravel `filled`.
+/// text, not an empty list. A missing key passes.
 class Filled extends RequiredWhen {
   const Filled({super.message});
 
@@ -641,7 +638,6 @@ class Filled extends RequiredWhen {
 }
 
 /// The key must be sent. Its value may be empty or `null`.
-/// Laravel `present`.
 class Present extends RequiredWhen {
   const Present({super.message});
 
@@ -658,7 +654,7 @@ class Present extends RequiredWhen {
 }
 
 /// The key must be missing, or blank text: `@Prohibited()`.
-/// Laravel `prohibited` (checked against Laravel 9.37): a key with `null`,
+/// A key with `null`,
 /// `[]`, `{}`, `0` or `false` fails, `""` and `"  "` pass. It reads the
 /// raw input, so it runs before the type check.
 class Prohibited extends RequiredWhen {
@@ -688,7 +684,7 @@ class Prohibited extends RequiredWhen {
 }
 
 /// When the key [other] has [value], the field must be missing or
-/// empty: `@ProhibitedIf('type', 'guest')`. Laravel `prohibited_if`.
+/// empty: `@ProhibitedIf('type', 'guest')`.
 /// Empty: `null`, blank text, an empty list or map. `0` and `false` fail.
 /// [other] matches like in [RequiredIf]. Give a list for many values.
 class ProhibitedIf extends RequiredWhen {
@@ -716,7 +712,7 @@ class ProhibitedIf extends RequiredWhen {
 
   @override
   bool appliesToField(Object? parent, Object? raw, Object key) {
-    // like Laravel `prohibited_if`: an empty value passes (null, blank
+    // an empty value passes (null, blank
     // text, an empty list or map), `0` and `false` fail
     return appliesTo(parent) && raw is Map && !RequiredWhen.isEmpty(raw[key]);
   }
@@ -736,7 +732,7 @@ abstract class ExcludeWhen {
 }
 
 /// Skip the field when the key [other] has [value]:
-/// `@ExcludeIf('type', 'person')`. Laravel `exclude_if`. Then no check of
+/// `@ExcludeIf('type', 'person')`. Then no check of
 /// the field runs, and it gets its default (or `null`, or
 /// `Maybe.missing()`), as if it was not sent. When [other] is missing,
 /// the field is not skipped. [other] is read from the raw input and
@@ -761,7 +757,7 @@ class ExcludeIf extends ExcludeWhen {
 }
 
 /// Skip the field unless the key [other] has [value]:
-/// `@ExcludeUnless('type', 'company')`. Laravel `exclude_unless`. A
+/// `@ExcludeUnless('type', 'company')`. A
 /// missing [other] counts as `null`, so the field is skipped then.
 /// See [ExcludeIf].
 class ExcludeUnless extends ExcludeWhen {
