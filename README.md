@@ -5,7 +5,7 @@ Typed input for Dart: DTO classes with generated checks, and fluent schemas like
 [![pub package](https://img.shields.io/pub/v/dox_validation.svg)](https://pub.dev/packages/dox_validation)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/dartondox/dox-validation/blob/main/LICENSE)
 
-Part of [Dox](https://dartondox.dev), a web backend framework for Dart, like Laravel.
+Part of [Dox](https://dartondox.dev), a web backend framework for Dart.
 Source code: [github.com/dartondox/dox-validation](https://github.com/dartondox/dox-validation).
 
 ## Install
