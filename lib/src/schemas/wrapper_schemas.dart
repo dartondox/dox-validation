@@ -20,19 +20,18 @@ class OptionalSchema<O> extends BaseSchema<O?>
   final List<RequiredWhen> requiredWhen;
 
   /// Required when the key [other] in the same object has [value] (or
-  /// one of the values, when [value] is a list). Laravel `required_if`.
+  /// one of the values, when [value] is a list).
   OptionalSchema<O> requiredIf(String other, Object? value, {String? message}) {
     return _addRequiredWhen(RequiredIf(other, value, message: message));
   }
 
   /// Required when any of the keys [others] in the same object is present
-  /// and not empty. Laravel `required_with`.
+  /// and not empty.
   OptionalSchema<O> requiredWith(List<String> others, {String? message}) {
     return _addRequiredWhen(RequiredWith(others, message: message));
   }
 
   /// Required unless the key [other] in the same object has [value].
-  /// Laravel `required_unless`.
   OptionalSchema<O> requiredUnless(
     String other,
     Object? value, {
@@ -42,35 +41,35 @@ class OptionalSchema<O> extends BaseSchema<O?>
   }
 
   /// Required when any of the keys [others] in the same object is missing
-  /// or empty. Laravel `required_without`.
+  /// or empty.
   OptionalSchema<O> requiredWithout(List<String> others, {String? message}) {
     return _addRequiredWhen(RequiredWithout(others, message: message));
   }
 
   /// Required when all of the keys [others] in the same object are
-  /// missing or empty. Laravel `required_without_all`.
+  /// missing or empty.
   OptionalSchema<O> requiredWithoutAll(List<String> others, {String? message}) {
     return _addRequiredWhen(RequiredWithoutAll(others, message: message));
   }
 
-  /// When the key is sent, it must have a value. Laravel `filled`.
+  /// When the key is sent, it must have a value.
   OptionalSchema<O> filled({String? message}) {
     return _addRequiredWhen(Filled(message: message));
   }
 
   /// The key must be sent, maybe with an empty value. Add `.nullable()`
-  /// to allow `null`. Laravel `present`.
+  /// to allow `null`.
   OptionalSchema<O> present({String? message}) {
     return _addRequiredWhen(Present(message: message));
   }
 
-  /// The key must be missing, or blank text. Laravel `prohibited`.
+  /// The key must be missing, or blank text.
   OptionalSchema<O> prohibited({String? message}) {
     return _addRequiredWhen(Prohibited(message: message));
   }
 
   /// Like [prohibited], when the key [other] in the same object has
-  /// [value]. Laravel `prohibited_if`.
+  /// [value].
   OptionalSchema<O> prohibitedIf(
     String other,
     Object? value, {

@@ -69,10 +69,10 @@ class DtoState extends ParseState {
   /// The message is [message] (from the annotation), else the first of
   /// these in `@Dto(messages:)`:
   /// - [messages] (the DTO that checks the field), by the dotted path
-  ///   from that DTO, like Laravel, then with `*` for list indexes
+  ///   from that DTO, then with `*` for list indexes
   ///   (`tags.*.required`). In a nested DTO this is `city.required`.
   ///   With `ValidationFlags.laravelMessageKeys`, each step tries the Dox
-  ///   code first, then its Laravel name (see [IssueCodes.laravel]), so
+  ///   code first, then its alternate name (see [IssueCodes.laravel]), so
   ///   `name.min` works too.
   /// - the messages of each outer DTO, by the path from it
   ///   (`address.city.required` in the root DTO).
@@ -96,7 +96,7 @@ class DtoState extends ParseState {
     if (text == null && (messages.isNotEmpty || _outer.isNotEmpty)) {
       // keys are relative to the DTO that owns the messages
       text = _find(messages, full, _baseOf(path).length, code);
-      // the messages of an outer DTO, like Laravel: the root DTO can
+      // the messages of an outer DTO: the root DTO can
       // name `address.city.required` for a field of a nested DTO
       for (int i = 0; text == null && i < _outer.length; i++) {
         (List<Object>, Map<String, String>) outer = _outer[i];

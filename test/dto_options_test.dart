@@ -1,7 +1,7 @@
 import 'package:dox_validation/dox_validation.dart';
 import 'package:test/test.dart';
 
-// Runtime parts of `@Dto(trim:, coerce:, attributes:)`, the Laravel names
+// Runtime parts of `@Dto(trim:, coerce:, attributes:)`, the alternate names
 // in the message lookup, and the new rules.
 
 const Map<String, String> _none = <String, String>{};
@@ -557,7 +557,7 @@ void main() {
         );
         expect(_codes(run(v.any().accepted(), value)), <String>['accepted']);
       }
-      // like Laravel: the words are case sensitive
+      // the words are case sensitive
       expect(_messages(run(v.any().accepted(), 'Yes')), <String>[
         'The a must be accepted',
       ]);
@@ -600,7 +600,7 @@ void main() {
         'a': v.any().optional().prohibitedIf('type', 'guest'),
       });
       expect(schema.safeParse(<String, dynamic>{'a': 'x'}).success, isTrue);
-      // like Laravel: an empty value passes
+      // an empty value passes
       for (Object? value in <Object?>[
         null,
         '',
@@ -711,7 +711,7 @@ void main() {
         _codes(run(v.int().gtField('b'), 4, <String, dynamic>{'b': 4})),
         <String>['greater_than'],
       );
-      // like Laravel: a missing other fails
+      // a missing other fails
       expect(_codes(run(v.int().gtField('b'), 5)), <String>['greater_than']);
       // text from a form
       expect(

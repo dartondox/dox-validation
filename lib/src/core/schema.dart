@@ -185,7 +185,7 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
 
   /// Leave the key out of the output, with no check, when the key
   /// [other] in the same object has [value] (or one of the values, when
-  /// [value] is a list). Laravel `exclude_if`. When [other] is missing,
+  /// [value] is a list). When [other] is missing,
   /// the key is not left out. [other] is a key of the same object, not a
   /// dotted path. It works on a field of `v.object()` only. Anywhere
   /// else it does nothing. The cross-field rules of other fields, like
@@ -195,7 +195,7 @@ abstract class Schema<O> implements StandardSchema<Object?, O> {
   }
 
   /// Leave the key out of the output, with no check, unless the key
-  /// [other] in the same object has [value]. Laravel `exclude_unless`.
+  /// [other] in the same object has [value].
   /// A missing [other] counts as `null`. See [excludeIf].
   ExcludeSchema<O> excludeUnless(String other, Object? value) {
     return ExcludeSchema<O>(this, ExcludeUnless(other, value));

@@ -12,7 +12,7 @@ class Patterns {
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
   );
 
-  /// No leading zeros (`01.1.1.1` fails), like Laravel. Some tools read
+  /// No leading zeros (`01.1.1.1` fails). Some tools read
   /// `010` as octal (8), so the address would not be what it looks like.
   static final RegExp ipv4 = RegExp(
     r'^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$',

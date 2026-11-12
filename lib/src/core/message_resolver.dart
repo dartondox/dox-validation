@@ -43,11 +43,11 @@ class MessageRequest {
 /// 4. the default English template
 ///
 /// With `ValidationFlags.laravelMessageKeys`, steps 2 and 3 try the Dox
-/// code first, then its Laravel name (see [IssueCodes.laravel]):
+/// code first, then its alternate name (see [IssueCodes.laravel]):
 /// `name.min` also finds `min_length`.
 ///
-/// [attributes] are the names shown for `{field}`, by key, like Laravel's
-/// custom attributes: `{'first_name': 'first name'}`.
+/// [attributes] are the names shown for `{field}`, by key:
+/// `{'first_name': 'first name'}`.
 ///
 /// For i18n, extend this class and override [resolve], then set
 /// [MessageResolver.global] or pass it to `safeParse(messages: ...)`.
@@ -101,7 +101,7 @@ class MessageResolver {
         names[ParseState.fieldName(path)];
   }
 
-  /// [messages] at `prefix.code`, else at `prefix.<Laravel name>` (see
+  /// [messages] at `prefix.code`, else at `prefix.<alternate name>` (see
   /// [IssueCodes.laravel]) when `ValidationFlags.laravelMessageKeys` is
   /// on. An empty [prefix] looks up the code alone.
   static String? find(

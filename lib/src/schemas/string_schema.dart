@@ -65,7 +65,7 @@ class StringSchema extends BaseSchema<String>
     return use(UuidRule(message: message));
   }
 
-  /// Must be a ULID. Laravel `ulid`.
+  /// Must be a ULID.
   StringSchema ulid({String? message}) {
     return use(Ulid(message: message));
   }
@@ -129,18 +129,17 @@ class StringSchema extends BaseSchema<String>
     );
   }
 
-  /// Must be valid JSON text. Laravel `json`.
+  /// Must be valid JSON text.
   StringSchema json({String? message}) {
     return use(Json(message: message));
   }
 
-  /// Only digits (0-9), exactly [length] of them. Laravel `digits`.
+  /// Only digits (0-9), exactly [length] of them.
   StringSchema digits(int length, {String? message}) {
     return use(Digits(length, message: message));
   }
 
   /// Only digits (0-9), from [min] to [max] of them.
-  /// Laravel `digits_between`.
   StringSchema digitsBetween(int min, int max, {String? message}) {
     return use(DigitsBetween(min, max, message: message));
   }
@@ -151,7 +150,7 @@ class StringSchema extends BaseSchema<String>
     return use(HexColor(short: short, message: message));
   }
 
-  /// A real date in [format], like `'Y-m-d'`. Laravel `date_format`.
+  /// A real date in [format], like `'Y-m-d'`.
   /// See [DateFormatted] for the format letters.
   /// A letter that is not supported throws an [ArgumentError] here.
   StringSchema dateFormat(String format, {String? message}) {
@@ -180,7 +179,7 @@ class StringSchema extends BaseSchema<String>
     );
   }
 
-  /// A row in [table] has this value in [column]. Laravel `exists`.
+  /// A row in [table] has this value in [column].
   /// Needs `parseAsync` and a [PresenceVerifier]. A name that is not
   /// plain throws an [ArgumentError] here.
   StringSchema exists(
@@ -204,7 +203,7 @@ class StringSchema extends BaseSchema<String>
   /// No row in [table] has this value in [column]. [ignore] skips the
   /// row where [ignoreColumn] equals it. [column] is required: it is
   /// never taken from the input key.
-  /// Laravel `unique`. Needs `parseAsync` and a [PresenceVerifier].
+  /// Needs `parseAsync` and a [PresenceVerifier].
   StringSchema unique(
     String table, {
     required String column,

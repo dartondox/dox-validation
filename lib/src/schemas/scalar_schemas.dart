@@ -247,7 +247,7 @@ class FileSchema extends BaseSchema<FileInput>
     );
   }
 
-  /// At most [bytes] long. Laravel `max` counts KB; this counts bytes,
+  /// At most [bytes] long. It counts bytes,
   /// so write `2 * 1024 * 1024` for 2 MB.
   FileSchema maxSize(int bytes, {String? message}) {
     return use(MaxSizeRule(bytes, message: message));
@@ -258,8 +258,8 @@ class FileSchema extends BaseSchema<FileInput>
     return use(MinSizeRule(bytes, message: message));
   }
 
-  /// One of the file types [types] (extensions, like `pdf`), like
-  /// Laravel `mimes`. Same check as [extensions], with the `mimes` code
+  /// One of the file types [types] (extensions, like `pdf`).
+  /// Same check as [extensions], with the `mimes` code
   /// and message of `@Mimes`.
   FileSchema mimes(List<String> types, {String? message}) {
     return use(MimesRule(types, message: message));

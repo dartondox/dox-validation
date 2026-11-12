@@ -3,7 +3,6 @@ import '../constants/issue_codes.dart';
 import '../core/rule.dart';
 
 /// Finds values in a database table, for [ExistsRule] and [UniqueRule].
-/// Like the Laravel presence verifier.
 ///
 /// `dox_orm` sets [instance] when the database starts. Set it yourself to
 /// use another database layer, or a fake one in tests.
@@ -55,7 +54,7 @@ abstract class PresenceVerifier {
   }
 
   /// The items of [values] that are not in the table, for `exists` on a
-  /// list. Like Laravel: one query for the whole list.
+  /// list. It runs one query for the whole list.
   ///
   /// An item passes only when its exact text is found. So on MySQL an
   /// item that differs from the row only in case fails (the safe side;
@@ -140,7 +139,7 @@ abstract class PresenceVerifier {
   }
 }
 
-/// A row in [table] has this value in [column]. Laravel `exists`.
+/// A row in [table] has this value in [column].
 /// Made by `v.string().exists('teams')`. Use `parseAsync`.
 class ExistsRule<T> extends AsyncRule<T> {
   const ExistsRule(
@@ -193,7 +192,7 @@ class ExistsRule<T> extends AsyncRule<T> {
   }
 }
 
-/// No row in [table] has this value in [column]. Laravel `unique`.
+/// No row in [table] has this value in [column].
 /// Made by `v.string().unique('users')`. Use `parseAsync`.
 ///
 /// Give [ignore] to skip one row, like the row being updated:

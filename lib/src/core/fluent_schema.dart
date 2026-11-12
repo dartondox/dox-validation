@@ -64,39 +64,38 @@ mixin FluentSchema<S extends BaseSchema<O>, O> on BaseSchema<O> {
     return use(SuperRefineRule<O>(asyncCheck: check));
   }
 
-  /// Must equal the key [other] in the same object. Laravel `same`.
+  /// Must equal the key [other] in the same object.
   S same(String other, {String? message}) {
     return use(Same<O>(other, message: message));
   }
 
   /// The key `<field>_confirmation` (or [other]) in the same object must
-  /// have the same value. Laravel `confirmed`.
+  /// have the same value.
   S confirmed({String? other, String? message}) {
     return use(Confirmed<O>(other: other, message: message));
   }
 
-  /// Must not equal the key [other] in the same object. Laravel
-  /// `different`.
+  /// Must not equal the key [other] in the same object.
   S different(String other, {String? message}) {
     return use(Different<O>(other, message: message));
   }
 
-  /// Must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`. Laravel
-  /// `accepted`. `v.bool()` takes only `true` and `false`: use
+  /// Must be `true`, `1`, `'1'`, `'true'`, `'yes'` or `'on'`.
+  /// `v.bool()` takes only `true` and `false`: use
   /// `v.coerce.bool().accepted()` for form words (any case), or
   /// `v.string()` / `v.any()` to check the exact words.
   S accepted({String? message}) {
     return use(Accepted<O>(message: message));
   }
 
-  /// Must be `false`, `0`, `'0'`, `'false'`, `'no'` or `'off'`. Laravel
-  /// `declined`. See [accepted] for the schema to use.
+  /// Must be `false`, `0`, `'0'`, `'false'`, `'no'` or `'off'`.
+  /// See [accepted] for the schema to use.
   S declined({String? message}) {
     return use(Declined<O>(message: message));
   }
 
   /// Stop at the first failed rule of this schema, so the value gets
-  /// one issue. Laravel `bail`. It counts for the rules of this schema
+  /// one issue. It counts for the rules of this schema
   /// only, wherever it is in the chain. A wrapper like `.optional()`
   /// and the fields of an object or the items of a list keep their own
   /// setting. So `.optional().bail()` does nothing for the rules inside

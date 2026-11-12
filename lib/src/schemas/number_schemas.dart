@@ -21,12 +21,12 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
     return use(MaxRule<N>(value, message: message));
   }
 
-  /// From [min] to [max]. Laravel `between`.
+  /// From [min] to [max].
   S between(num min, num max, {String? message}) {
     return use(BetweenRule<N>(min, max, message: message));
   }
 
-  /// A row in [table] has this value in [column]. Laravel `exists`.
+  /// A row in [table] has this value in [column].
   /// Needs `parseAsync` and a [PresenceVerifier]. A name that is not
   /// plain throws an [ArgumentError] here.
   S exists(
@@ -50,7 +50,7 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
   /// No row in [table] has this value in [column]. [ignore] skips the
   /// row where [ignoreColumn] equals it. [column] is required: it is
   /// never taken from the input key.
-  /// Laravel `unique`. Needs `parseAsync` and a [PresenceVerifier].
+  /// Needs `parseAsync` and a [PresenceVerifier].
   S unique(
     String table, {
     required String column,
@@ -84,23 +84,23 @@ mixin NumberChecks<S extends BaseSchema<N>, N extends num>
     return use(LessThanRule<N>(value, message: message));
   }
 
-  /// Greater than the key [other] in the same object. Laravel `gt:field`.
+  /// Greater than the key [other] in the same object.
   /// A missing [other] fails.
   S gtField(String other, {String? message}) {
     return use(GreaterThanField<N>(other, message: message));
   }
 
-  /// At least the key [other] in the same object. Laravel `gte:field`.
+  /// At least the key [other] in the same object.
   S gteField(String other, {String? message}) {
     return use(GreaterThanOrEqualField<N>(other, message: message));
   }
 
-  /// Less than the key [other] in the same object. Laravel `lt:field`.
+  /// Less than the key [other] in the same object.
   S ltField(String other, {String? message}) {
     return use(LessThanField<N>(other, message: message));
   }
 
-  /// At most the key [other] in the same object. Laravel `lte:field`.
+  /// At most the key [other] in the same object.
   S lteField(String other, {String? message}) {
     return use(LessThanOrEqualField<N>(other, message: message));
   }
