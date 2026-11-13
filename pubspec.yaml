@@ -5,7 +5,7 @@ repository: https://github.com/dartondox/dox-validation
 homepage: https://dartondox.dev
 
 environment:
-  sdk: ^3.14.0
+  sdk: ^3.13.0
 
 dev_dependencies:
   lints: ^6.1.0
