@@ -1,4 +1,4 @@
-## Unreleased
+## 3.2.0
 
 - Ships an AI agent skill (dox-validation-guide). Install it in your app with `dart run skills@ get`.
 - New: `ValidationFlags`, opt-in behaviors that are all off by default. Set them with `Validator.flags = const ValidationFlags(...)`. `ValidationFlags.all()` turns every one on. Set them in each isolate, like in a provider's `setup()`.
