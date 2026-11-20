@@ -3,6 +3,7 @@ import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../constants/schema_constants.dart';
 import '../core/fluent_schema.dart';
+import '../core/iso_date.dart';
 import '../core/json_schema_tools.dart';
 import '../core/message_resolver.dart';
 import '../core/parse_state.dart';
@@ -79,12 +80,16 @@ class DateSchema extends BaseSchema<DateTime>
       return input;
     }
     if (coerce && input is String) {
-      DateTime? date = DateTime.tryParse(input.trim());
+      DateTime? date = IsoDate.parse(input.trim());
       if (date != null) {
         return date;
       }
     }
-    if (coerce && input is int) {
+    // Dart can only hold dates up to 8.64e15 ms from 1970.
+    if (coerce &&
+        input is int &&
+        input >= -8640000000000000 &&
+        input <= 8640000000000000) {
       return DateTime.fromMillisecondsSinceEpoch(input, isUtc: true);
     }
     addTypeIssue(

@@ -1,6 +1,7 @@
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../constants/patterns.dart';
+import '../core/iso_date.dart';
 import '../core/rule.dart';
 import '../dto/dto_state.dart';
 import 'built_in_rule.dart';
@@ -165,8 +166,7 @@ class DateTimeStringRule extends BuiltInRule<String> {
 
   @override
   bool check(String value, RuleContext context) {
-    return Patterns.isoDateTime.hasMatch(value) &&
-        DateTime.tryParse(value) != null;
+    return Patterns.isoDateTime.hasMatch(value) && IsoDate.parse(value) != null;
   }
 }
 
