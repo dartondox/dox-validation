@@ -11,6 +11,12 @@ void main() {
       expect(v.coerce.date().safeParse(-99999999999999999).success, false);
     });
 
+    test('the edge years do not throw', () {
+      expect(v.coerce.date().safeParse('+275760-09-13').success, true);
+      expect(v.coerce.date().safeParse('+275760-09-14').success, false);
+      expect(v.coerce.date().safeParse('-271821-01-01').success, isA<bool>());
+    });
+
     test('the edge of the range still works', () {
       expect(v.coerce.date().safeParse(8640000000000000).success, true);
       expect(v.coerce.date().safeParse(-8640000000000000).success, true);
@@ -127,6 +133,22 @@ void main() {
       expect(v.num().multipleOf(0.1).safeParse(0.7).success, true);
       expect(v.num().multipleOf(0.01).safeParse(1.15).success, true);
       expect(v.num().multipleOf(0.1).safeParse(0.35).success, false);
+    });
+
+    test('huge and tiny values do not throw or pass by chance', () {
+      expect(v.num().multipleOf(0.1).safeParse(1e308).success, false);
+      expect(v.num().multipleOf(10).safeParse(1e20).success, true);
+      expect(v.num().multipleOf(0.01).safeParse(5000000.004).success, false);
+      expect(v.num().multipleOf(1).safeParse(1000000000.4).success, false);
+      expect(v.num().multipleOf(0.01).safeParse(19.99).success, true);
+      expect(v.num().multipleOf(0.05).safeParse(1.15).success, true);
+      expect(v.num().multipleOf(0.1).safeParse(-0.3).success, true);
+      expect(v.num().multipleOf(1e-8).safeParse(1e-7).success, true);
+    });
+
+    test('factor 0 gives an issue, not an error', () {
+      expect(v.int().multipleOf(0).safeParse(3).success, false);
+      expect(v.num().multipleOf(0).safeParse(3).success, false);
     });
 
     test('works as before for other numbers', () {

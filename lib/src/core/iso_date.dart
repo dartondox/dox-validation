@@ -19,11 +19,19 @@ class IsoDate {
     int month = int.parse(match[2]!);
     int day = int.parse(match[3]!);
     if (month < 1 || month > 12) return false;
-    // Day 0 of the next month is the last day of this month.
-    if (day < 1 || day > DateTime.utc(year, month + 1, 0).day) return false;
+    if (day < 1 || day > _daysIn(year, month)) return false;
     return _atMost(match[4], 23) &&
         _atMost(match[5], 59) &&
         _atMost(match[6], 59);
+  }
+
+  static int _daysIn(int year, int month) {
+    if (month == 2) {
+      bool leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+      return leap ? 29 : 28;
+    }
+    return const <int>[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month -
+        1];
   }
 
   static bool _atMost(String? part, int max) {
