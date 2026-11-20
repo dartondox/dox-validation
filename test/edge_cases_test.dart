@@ -146,6 +146,13 @@ void main() {
       expect(v.num().multipleOf(1e-8).safeParse(1e-7).success, true);
     });
 
+    test('big quotients keep working', () {
+      expect(v.num().multipleOf(0.01).safeParse(307407039.16).success, true);
+      expect(v.num().multipleOf(0.01).safeParse(42255011316.42).success, true);
+      expect(v.num().multipleOf(0.1).safeParse(6705752917.7).success, true);
+      expect(v.num().multipleOf(1).safeParse(1000000.0000001).success, false);
+    });
+
     test('factor 0 gives an issue, not an error', () {
       expect(v.int().multipleOf(0).safeParse(3).success, false);
       expect(v.num().multipleOf(0).safeParse(3).success, false);

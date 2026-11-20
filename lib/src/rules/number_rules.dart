@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../core/rule.dart';
@@ -94,11 +92,11 @@ class MultipleOfRule<N extends num> extends BuiltInRule<N> {
     if (factor == 0) return false;
     if (value is int && factor is int) return value % factor == 0;
     // Doubles: 0.3 / 0.1 is 2.9999999999999996, so allow a tiny error.
-    // The error stays under 1e-6, so big numbers do not pass by chance.
+    // The error is judged against the value, about 45 machine epsilons.
     double quotient = value / factor;
     if (!quotient.isFinite) return false;
-    double error = (quotient - quotient.roundToDouble()).abs();
-    return error <= math.min(1e-9 * math.max(1, quotient.abs()), 1e-6);
+    double error = (value - quotient.roundToDouble() * factor).abs();
+    return error <= value.abs() * 1e-14;
   }
 }
 
