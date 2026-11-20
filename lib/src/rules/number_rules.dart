@@ -93,18 +93,15 @@ class MultipleOfRule<N extends num> extends BuiltInRule<N> {
   bool check(N value, RuleContext context) {
     if (factor == 0) return false;
     if (value is int && factor is int) return value % factor == 0;
-    // Doubles: 0.3 / 0.1 is 2.9999999999999996, so allow a tiny error.
-    // The error is judged against the value, a few machine epsilons.
-    double quotient = value / factor;
-    if (!quotient.isFinite) return false;
-    if (quotient.abs() > 9007199254740992) {
-      // Above 2^53 a double cannot show a fraction. Whole numbers still have
-      // an exact `%`. For anything else we cannot prove it, so we reject it.
-      bool whole =
-          value == value.truncateToDouble() &&
-          factor == factor.truncateToDouble();
-      return whole && value % factor == 0;
+    // A whole factor has no binary error, so `%` is exact (also for doubles).
+    if (factor == factor.truncateToDouble()) {
+      return value.isFinite && value % factor == 0;
     }
+    // Fraction factor: 0.3 / 0.1 is 2.9999999999999996, so allow a tiny error.
+    // Above 2^53 a double cannot show a fraction, so we cannot prove it and
+    // we reject it.
+    double quotient = value / factor;
+    if (!quotient.isFinite || quotient.abs() > 9007199254740992) return false;
     double error = (value - quotient.roundToDouble() * factor).abs();
     // At least 4e-16 of the value (a few machine epsilons, for one number).
     // Sums of many prices add more error, so allow up to 1e-12 of the value,
