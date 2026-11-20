@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../constants/default_messages.dart';
 import '../constants/issue_codes.dart';
 import '../core/rule.dart';
@@ -104,7 +106,12 @@ class MultipleOfRule<N extends num> extends BuiltInRule<N> {
       return whole && value % factor == 0;
     }
     double error = (value - quotient.roundToDouble() * factor).abs();
-    return error <= value.abs() * 4e-16;
+    // At least 4e-16 of the value (a few machine epsilons, for one number).
+    // Sums of many prices add more error, so allow up to 1e-12 of the value,
+    // but never more than a millionth of the factor.
+    double floor = value.abs() * 4e-16;
+    double cap = math.min(value.abs() * 1e-12, factor.abs() * 1e-6);
+    return error <= math.max(floor, cap);
   }
 }
 

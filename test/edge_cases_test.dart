@@ -14,7 +14,7 @@ void main() {
     test('the edge years do not throw', () {
       expect(v.coerce.date().safeParse('+275760-09-13').success, true);
       expect(v.coerce.date().safeParse('+275760-09-14').success, false);
-      expect(v.coerce.date().safeParse('-271821-01-01').success, isA<bool>());
+      expect(v.coerce.date().safeParse('-271821-01-01').success, false);
     });
 
     test('the smallest int does not throw', () {
@@ -67,6 +67,18 @@ void main() {
         String text = '2024-01-01T10:00:00$zone';
         expect(v.coerce.date().safeParse(text).success, true, reason: text);
       }
+    });
+  });
+
+  group('number field compare with hex text', () {
+    test('0x1F is not 31', () {
+      ParseResult<Object?> result = v
+          .object(<String, Schema<Object?>>{
+            'a': v.int().gtField('b'),
+            'b': v.any().optional(),
+          })
+          .safeParse(<String, dynamic>{'a': 40, 'b': '0x1F'});
+      expect(result.success, false);
     });
   });
 
@@ -197,7 +209,7 @@ void main() {
       expect(v.num().multipleOf(0.01).safeParse(307407039.16).success, true);
       expect(v.num().multipleOf(0.01).safeParse(42255011316.42).success, true);
       expect(v.num().multipleOf(0.1).safeParse(6705752917.7).success, true);
-      expect(v.num().multipleOf(1).safeParse(1000000.0000001).success, false);
+      expect(v.num().multipleOf(1).safeParse(1000000.00001).success, false);
     });
 
     test('tight for big values, safe above 2^53', () {
@@ -209,6 +221,22 @@ void main() {
       );
       expect(v.num().multipleOf(0.25).safeParse(123456789012.75).success, true);
       expect(v.num().multipleOf(0.01).safeParse(123456789.45).success, true);
+    });
+
+    test('a sum of 30 prices still passes', () {
+      double sum = 0;
+      for (int i = 0; i < 30; i++) {
+        int cents = 400000 + i * 3719;
+        String cost =
+            '${cents ~/ 100}.${(cents % 100).toString().padLeft(2, '0')}';
+        sum += double.parse(cost);
+      }
+      expect(v.num().multipleOf(0.01).safeParse(sum).success, true);
+      double step = 0;
+      for (int i = 0; i < 1000; i++) {
+        step += 0.1;
+        expect(v.num().multipleOf(0.1).safeParse(step).success, true);
+      }
     });
 
     test('factor 0 gives an issue, not an error', () {

@@ -879,6 +879,11 @@ abstract class FieldCompare<T extends num> extends Rule<T> {
   /// `true` when [value] passes against [other].
   bool compare(num value, num other);
 
+  /// Decimal text only. `0x1F` is not a number here.
+  static num? _decimal(String text) {
+    return int.tryParse(text, radix: 10) ?? double.tryParse(text);
+  }
+
   @override
   bool check(T value, RuleContext context) {
     Object? raw = context.sibling(other);
@@ -886,7 +891,7 @@ abstract class FieldCompare<T extends num> extends Rule<T> {
     num? number = raw is num
         ? raw
         : raw is String
-        ? num.tryParse(raw.trim())
+        ? _decimal(raw.trim())
         : null;
     if (number == null || !number.isFinite) return false;
     return compare(value, number);
