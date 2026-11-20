@@ -194,6 +194,15 @@ void main() {
       expect(v.num().multipleOf(0.1).safeParse(0.35).success, false);
     });
 
+    test('whole factor does not accept a near miss', () {
+      for (num n in <num>[1000000.0000001, 1000.0000000001, 1e15 + 0.125]) {
+        expect(v.num().multipleOf(1).safeParse(n).success, false, reason: '$n');
+      }
+      expect(v.num().multipleOf(1).safeParse(1e15).success, true);
+      expect(v.num().multipleOf(1).safeParse(42.0).success, true);
+      expect(v.num().multipleOf(0.1).safeParse(0.3).success, true);
+    });
+
     test('huge and tiny values do not throw or pass by chance', () {
       expect(v.num().multipleOf(0.1).safeParse(1e308).success, false);
       expect(v.num().multipleOf(10).safeParse(1e20).success, true);

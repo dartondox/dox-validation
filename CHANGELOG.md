@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Fix: `multipleOf` with a whole factor (like `multipleOf(1)`) accepted near misses such as `1000000.0000001` and `1e15 + 0.125`. A whole factor now uses an exact check. A fraction factor keeps its small tolerance, so `0.3` is still a multiple of `0.1`.
 - Fix: some input that passed before now fails. This is on purpose, the old result was wrong.
   - `v.coerce.date()` with a number far outside the date range (also the smallest int) gives a date issue. Before, it threw a `RangeError`.
   - `v.num()` no longer accepts `Infinity` (for example JSON `1e999`).
