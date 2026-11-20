@@ -5,7 +5,7 @@
   - `v.num()` no longer accepts `Infinity` (for example JSON `1e999`).
   - `datetime()`, `v.coerce.date()` and DTO dates reject dates and times that do not exist, like `2024-02-31` or `10:61`. Before, they turned into a later date. Hour `24` (`T24:00:00`), a leap second (`:60`), a time zone offset like `+99:99` and a year outside Dart's range (like `+999999-01-01`) fail too.
   - A DTO `int` field fails for a double above 2^53, like `1e30`. Before, it became the max int.
-  - `v.coerce.int()` and `v.coerce.num()` reject hex text like `"0x1F"`. The same limit for whole doubles applies to `v.coerce.int()`.
+  - `v.coerce.int()`, `v.coerce.num()` and the field compare rules (like `gtField`) reject hex text like `"0x1F"`. The same limit for whole doubles applies to `v.coerce.int()`.
   - `multipleOf` works for fractions. `v.num().multipleOf(0.1)` now accepts `0.3`. When the quotient is above 2^53, a double value fails, because a fraction cannot be seen there.
 
 ## 3.2.0
