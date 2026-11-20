@@ -89,7 +89,12 @@ class MultipleOfRule<N extends num> extends BuiltInRule<N> {
 
   @override
   bool check(N value, RuleContext context) {
-    return value % factor == 0;
+    if (factor == 0) return value % factor == 0;
+    if (value is int && factor is int) return value % factor == 0;
+    // Doubles: 0.3 / 0.1 is 2.9999999999999996, so allow a tiny error.
+    double quotient = value / factor;
+    return (quotient - quotient.round()).abs() <=
+        1e-9 * quotient.abs().clamp(1, double.infinity);
   }
 }
 

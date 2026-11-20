@@ -151,11 +151,14 @@ class IntSchema extends BaseSchema<int>
   }
 
   int? _coerce(Object? input) {
-    if (input is double && input.isFinite && input == input.truncate()) {
+    if (input is double &&
+        input.isFinite &&
+        input.abs() <= 9007199254740992 &&
+        input == input.truncate()) {
       return input.toInt();
     }
     if (input is String) {
-      return int.tryParse(input.trim());
+      return int.tryParse(input.trim(), radix: 10);
     }
     return null;
   }
@@ -181,11 +184,12 @@ class NumSchema extends BaseSchema<num>
 
   @override
   Object? parseType(Object? input, ParseState state, List<Object> path) {
-    if (input is num && !input.isNaN) {
+    if (input is num && input.isFinite) {
       return input;
     }
     if (coerce && input is String) {
-      num? value = num.tryParse(input.trim());
+      String text = input.trim();
+      num? value = int.tryParse(text, radix: 10) ?? double.tryParse(text);
       if (value != null && value.isFinite) {
         return value;
       }

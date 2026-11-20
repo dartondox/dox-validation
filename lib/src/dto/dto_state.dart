@@ -3,6 +3,7 @@ import '../constants/issue_codes.dart';
 import '../constants/patterns.dart';
 import '../core/converted_values.dart';
 import '../core/issue.dart';
+import '../core/iso_date.dart';
 import '../core/message_resolver.dart';
 import '../core/parse_state.dart';
 import '../core/rule.dart';
@@ -447,7 +448,11 @@ class DtoState extends ParseState {
     Object? one = _one(raw);
     if (one == null || one is Undefined) return one;
     if (one is int) return _keep(path, key, one);
-    if (one is double && one.isFinite && one == one.truncateToDouble()) {
+    // Above 2^53 a double is not a safe int, and toInt() would clamp it.
+    if (one is double &&
+        one.isFinite &&
+        one.abs() <= 9007199254740992 &&
+        one == one.truncateToDouble()) {
       return _keep(path, key, one.toInt());
     }
     if (one is String) {
@@ -710,7 +715,7 @@ class DtoChecks {
     }
     if (match[4] == null) return check;
     String value = match[7] == null ? '${text}Z' : text;
-    DateTime? parsed = DateTime.tryParse(value.replaceFirst(' ', 'T'));
+    DateTime? parsed = IsoDate.parse(value.replaceFirst(' ', 'T'));
     return parsed?.toUtc();
   }
 
