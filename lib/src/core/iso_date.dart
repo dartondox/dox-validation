@@ -3,7 +3,7 @@ class IsoDate {
   const IsoDate._();
 
   static final RegExp _parts = RegExp(
-    r'^([+-]?\d{4,6})-?(\d{2})-?(\d{2})(?:[ Tt](\d{2})(?::?(\d{2})(?::?(\d{2}))?)?)?',
+    r'^([+-]?\d{4,6})-?(\d{2})-?(\d{2})(?:[ Tt](\d{2})(?::?(\d{2})(?::?(\d{2})(?:[.,]\d+)?)?)?( ?[zZ]| ?[-+](\d{2})(?::?(\d{2}))?)?)?',
   );
 
   /// Like `DateTime.tryParse`, but `null` when a written part is out of
@@ -18,11 +18,15 @@ class IsoDate {
     int year = int.parse(match[1]!);
     int month = int.parse(match[2]!);
     int day = int.parse(match[3]!);
+    // Dart can only hold years from -271821 to 275760.
+    if (year < -271821 || year > 275760) return false;
     if (month < 1 || month > 12) return false;
     if (day < 1 || day > _daysIn(year, month)) return false;
     return _atMost(match[4], 23) &&
         _atMost(match[5], 59) &&
-        _atMost(match[6], 59);
+        _atMost(match[6], 59) &&
+        _atMost(match[8], 23) &&
+        _atMost(match[9], 59);
   }
 
   static int _daysIn(int year, int month) {

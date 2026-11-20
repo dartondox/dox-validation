@@ -92,11 +92,19 @@ class MultipleOfRule<N extends num> extends BuiltInRule<N> {
     if (factor == 0) return false;
     if (value is int && factor is int) return value % factor == 0;
     // Doubles: 0.3 / 0.1 is 2.9999999999999996, so allow a tiny error.
-    // The error is judged against the value, about 45 machine epsilons.
+    // The error is judged against the value, a few machine epsilons.
     double quotient = value / factor;
     if (!quotient.isFinite) return false;
+    if (quotient.abs() > 9007199254740992) {
+      // Above 2^53 a double cannot show a fraction. Whole numbers still have
+      // an exact `%`. For anything else we cannot prove it, so we reject it.
+      bool whole =
+          value == value.truncateToDouble() &&
+          factor == factor.truncateToDouble();
+      return whole && value % factor == 0;
+    }
     double error = (value - quotient.roundToDouble() * factor).abs();
-    return error <= value.abs() * 1e-14;
+    return error <= value.abs() * 4e-16;
   }
 }
 

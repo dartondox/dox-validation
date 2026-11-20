@@ -86,7 +86,10 @@ class DateSchema extends BaseSchema<DateTime>
       }
     }
     // Dart can only hold dates up to 8.64e15 ms from 1970.
-    if (coerce && input is int && input.abs() <= 8640000000000000) {
+    if (coerce &&
+        input is int &&
+        input >= -8640000000000000 &&
+        input <= 8640000000000000) {
       return DateTime.fromMillisecondsSinceEpoch(input, isUtc: true);
     }
     addTypeIssue(

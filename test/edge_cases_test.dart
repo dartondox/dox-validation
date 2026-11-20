@@ -17,9 +17,56 @@ void main() {
       expect(v.coerce.date().safeParse('-271821-01-01').success, isA<bool>());
     });
 
+    test('the smallest int does not throw', () {
+      expect(v.coerce.date().safeParse(-9223372036854775808).success, false);
+      expect(v.coerce.date().safeParse(9223372036854775807).success, false);
+    });
+
     test('the edge of the range still works', () {
       expect(v.coerce.date().safeParse(8640000000000000).success, true);
       expect(v.coerce.date().safeParse(-8640000000000000).success, true);
+    });
+  });
+
+  group('years and time zone offsets', () {
+    test('a year outside the Dart range fails', () {
+      for (String text in <String>['+999999-01-01', '-999999-12-31']) {
+        expect(v.coerce.date().safeParse(text).success, false, reason: text);
+        expect(
+          v.string().datetime().safeParse('${text}T10:00:00Z').success,
+          false,
+        );
+      }
+      DtoState s = DtoState(root: null);
+      expect(s.date('+999999-01-01', _top, 'a', _none), invalid);
+    });
+
+    test('an offset out of range fails', () {
+      for (String zone in <String>[
+        '+99:99',
+        '+25:00',
+        '+07:99',
+        '-24:00',
+        '+2400',
+        '+24',
+      ]) {
+        String text = '2024-01-01T10:00:00$zone';
+        expect(v.coerce.date().safeParse(text).success, false, reason: text);
+        expect(
+          v.string().datetime().safeParse(text).success,
+          false,
+          reason: text,
+        );
+        DtoState s = DtoState(root: null);
+        expect(s.date(text, _top, 'a', _none), invalid, reason: text);
+      }
+    });
+
+    test('a normal offset still passes', () {
+      for (String zone in <String>['+23:59', '-08:00', '+0530', '+05', 'Z']) {
+        String text = '2024-01-01T10:00:00$zone';
+        expect(v.coerce.date().safeParse(text).success, true, reason: text);
+      }
     });
   });
 
@@ -151,6 +198,17 @@ void main() {
       expect(v.num().multipleOf(0.01).safeParse(42255011316.42).success, true);
       expect(v.num().multipleOf(0.1).safeParse(6705752917.7).success, true);
       expect(v.num().multipleOf(1).safeParse(1000000.0000001).success, false);
+    });
+
+    test('tight for big values, safe above 2^53', () {
+      expect(v.num().multipleOf(0.01).safeParse(1e12 + 0.005).success, false);
+      expect(v.num().multipleOf(1).safeParse(1e14 + 0.5).success, false);
+      expect(
+        v.num().multipleOf(1.5).safeParse(9223372036854775807).success,
+        false,
+      );
+      expect(v.num().multipleOf(0.25).safeParse(123456789012.75).success, true);
+      expect(v.num().multipleOf(0.01).safeParse(123456789.45).success, true);
     });
 
     test('factor 0 gives an issue, not an error', () {
