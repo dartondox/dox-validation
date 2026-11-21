@@ -1,4 +1,4 @@
-## Unreleased
+## 3.2.1
 
 - Fix: `multipleOf` with a whole factor (like `multipleOf(1)`) accepted near misses such as `1000000.0000001` and `1e15 + 0.125`. A whole factor now uses an exact check. A fraction factor keeps its small tolerance, so `0.3` is still a multiple of `0.1`.
 - Fix: some input that passed before now fails. This is on purpose, the old result was wrong.
